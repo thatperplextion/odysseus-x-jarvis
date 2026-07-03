@@ -270,7 +270,8 @@ def _skill_dump(sk) -> Dict:
 # ---------------------------------------------------------------------------
 
 async def do_manage_tasks(content: str, owner: Optional[str] = None) -> Dict:
-    """Handle manage_tasks tool calls: CRUD on scheduled tasks."""
+    """Handle manage_tasks tool calls: CRUD on scheduled tasks.
+    Action 'sleep_and_resume' allows the agent to pause and wake up later via delay_seconds and prompt."""
     import uuid as _uuid
     from core.database import SessionLocal, ScheduledTask
     from src.task_scheduler import compute_next_run
@@ -449,6 +450,32 @@ async def do_manage_tasks(content: str, owner: Optional[str] = None) -> Dict:
                 else:
                     return {"error": "Task is already running", "exit_code": 1}
             return {"error": "Task scheduler not available", "exit_code": 1}
+
+        elif action == "sleep_and_resume":
+            from datetime import datetime, timedelta, timezone
+            delay_seconds = int(args.get("delay_seconds", 3600))
+            prompt = args.get("prompt", "Wake up and continue the task.")
+            
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            next_run = now + timedelta(seconds=delay_seconds)
+            
+            task_id = str(_uuid.uuid4())
+            name = args.get("name") or f"Wakeup in {delay_seconds}s"
+            task = ScheduledTask(
+                id=task_id,
+                owner=owner,
+                name=name,
+                prompt=prompt,
+                task_type="llm",
+                schedule="once",
+                trigger_type="schedule",
+                next_run=next_run,
+                status="active",
+                output_target="session",
+            )
+            db.add(task)
+            db.commit()
+            return {"response": f"Agent will sleep and resume in {delay_seconds} seconds to: {prompt} (Task ID: {task_id}). Stop executing tools now to go to sleep.", "task_id": task_id, "exit_code": 0}
 
         else:
             return {"error": f"Unknown action: {action}", "exit_code": 1}

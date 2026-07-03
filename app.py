@@ -1179,6 +1179,15 @@ async def _startup_event():
 
 async def _shutdown_event():
     logger.info("Application shutting down...")
+    
+    # Cancel all background loops and startup tasks so the event loop can exit cleanly
+    _startup_tasks: list[asyncio.Task] = getattr(app.state, "_startup_tasks", [])
+    for task in _startup_tasks:
+        if not task.done():
+            task.cancel()
+    if _startup_tasks:
+        await asyncio.gather(*_startup_tasks, return_exceptions=True)
+
     if upload_cleanup_task:
         upload_cleanup_task.cancel()
         try:

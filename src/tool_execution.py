@@ -337,14 +337,10 @@ def _parse_qualified_mcp_args(tool: str, content: str) -> tuple[Dict, Optional[s
         return {}, None
     try:
         parsed = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        if tool.startswith("mcp__email__"):
-            return {}, "Email MCP tool arguments must be a JSON object."
-        return {}, None
+    except (json.JSONDecodeError, TypeError) as e:
+        return {}, f"MCP tool arguments must be valid JSON: {e}"
     if not isinstance(parsed, dict):
-        if tool.startswith("mcp__email__"):
-            return {}, "Email MCP tool arguments must be a JSON object."
-        return {}, None
+        return {}, "MCP tool arguments must be a JSON object."
     return parsed, None
 
 
@@ -1022,5 +1018,9 @@ def format_tool_result(description: str, result: Dict) -> str:
             parts.append(f"**data:**\n```json\n{extra_json}\n```")
         except (TypeError, ValueError):
             pass
+
+    has_error = result.get("exit_code") not in (0, None, "0", "None") or "error" in result or result.get("success") is False
+    if has_error:
+        parts.append("\n**SYSTEM INSTRUCTION:** The tool execution failed. In your next response, MUST write a `<thought>` block reflecting on this failure and planning a corrected approach before calling tools again.")
 
     return "\n".join(parts)

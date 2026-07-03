@@ -466,10 +466,28 @@ class GetWorkspaceTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import get_active_workspace
         ws = get_active_workspace()
+
+        def _get_tree():
+            if not ws or not os.path.isdir(ws):
+                return ""
+            try:
+                # Basic top-level tree
+                out = ["\nWorkspace contents (top level):"]
+                with os.scandir(ws) as it:
+                    entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
+                    for e in entries:
+                        if e.name.startswith("."):
+                            continue
+                        out.append(f"  {e.name}/" if e.is_dir() else f"  {e.name}")
+                return "\n".join(out)
+            except Exception:
+                return ""
+
         if ws:
+            tree_str = await asyncio.to_thread(_get_tree)
             return {
                 "output": f"{ws}\n(File tools are confined to this folder; the shell starts "
-                          f"here but is not sandboxed and can reach outside it.)",
+                          f"here but is not sandboxed and can reach outside it.){tree_str}",
                 "exit_code": 0,
             }
         return {
@@ -477,3 +495,4 @@ class GetWorkspaceTool:
                       "resolve paths from the user or use absolute paths.",
             "exit_code": 0,
         }
+
