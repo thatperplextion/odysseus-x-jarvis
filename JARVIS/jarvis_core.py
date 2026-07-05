@@ -1,0 +1,428 @@
+"""
+Jarvis Core - Main entry point and coordinator for the Jarvis Operating System
+Built on top of Odysseus AI workspace platform
+"""
+
+import asyncio
+import logging
+import os
+import sys
+from pathlib import Path
+from typing import Dict, Any, Optional
+from datetime import datetime
+import json
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.constants import DATA_DIR
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class JarvisCore:
+    """
+    Main Jarvis OS coordinator.
+    Manages initialization, lifecycle, and coordination between all subsystems.
+    """
+
+    def __init__(self):
+        self.version = "1.0.0"
+        self.startup_time = datetime.now()
+        self.subsystems = {}
+        self.state = "initializing"
+        self.config = {}
+        self.event_loop = None
+        self.shutdown_requested = False
+        self.autonomous_agent = None
+        self.ui = None
+        self.odysseus_components: Dict[str, Any] = {}
+
+        self.jarvis_dir = Path(__file__).parent
+        self.jarvis_data_dir = Path(DATA_DIR) / "jarvis"
+        self.jarvis_data_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Jarvis OS v{self.version} initializing...")
+        logger.info(f"Jarvis data directory: {self.jarvis_data_dir}")
+
+    def connect_odysseus(self, components: Dict[str, Any]):
+        """Inject Odysseus platform components for deep integration"""
+        self.odysseus_components = components or {}
+        logger.info(f"Odysseus bridge connected ({len(self.odysseus_components)} components)")
+
+        if 'integration' in self.subsystems:
+            self.subsystems['integration'].connect_odysseus(components)
+
+    async def initialize(self):
+        """Initialize all Jarvis subsystems"""
+        logger.info("Starting Jarvis OS initialization...")
+
+        try:
+            await self._load_configuration()
+
+            await self._initialize_kernel()
+            await self._initialize_consciousness()
+            await self._initialize_automation()
+            await self._initialize_interface()
+            await self._initialize_communication()
+            await self._initialize_security()
+            await self._initialize_learning()
+            await self._initialize_integration()
+
+            # Wire cross-subsystem references
+            await self._wire_subsystems()
+
+            # Initialize UI dashboard
+            await self._initialize_ui()
+
+            # Initialize autonomous agent
+            await self._initialize_autonomous()
+
+            # Connect Odysseus if components were injected before init
+            if self.odysseus_components:
+                self.connect_odysseus(self.odysseus_components)
+
+            self.state = "running"
+            logger.info("Jarvis OS initialization complete")
+
+            await self._start_event_loop()
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Jarvis OS: {e}", exc_info=True)
+            self.state = "error"
+            raise
+
+    async def _load_configuration(self):
+        """Load Jarvis configuration"""
+        logger.info("Loading Jarvis configuration...")
+
+        config_file = self.jarvis_dir / "Config" / "jarvis_config.json"
+        example_file = self.jarvis_dir / "Config" / "jarvis_config.json.example"
+
+        default_config = {
+            "version": self.version,
+            "personality": "jarvis_standard",
+            "security_level": "high",
+            "learning_enabled": True,
+            "automation_enabled": True,
+            "voice_enabled": True,
+            "autonomous_mode": True,
+            "autonomous_interval": 30,
+            "monitoring_interval": 5,
+            "max_concurrent_tasks": 10,
+            "resource_limits": {
+                "cpu_percent": 80,
+                "memory_percent": 80,
+                "network_bandwidth": 1000000
+            },
+            "permissions": {
+                "file_access": "restricted",
+                "process_control": "monitored",
+                "network_access": "filtered",
+                "system_changes": "authorized"
+            }
+        }
+
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                user_config = json.load(f)
+                self.config = {**default_config, **user_config}
+        elif example_file.exists():
+            with open(example_file, 'r', encoding='utf-8') as f:
+                user_config = json.load(f)
+                self.config = {**default_config, **user_config}
+        else:
+            self.config = default_config
+
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        if not config_file.exists():
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2)
+
+        logger.info(f"Configuration loaded: {len(self.config)} settings")
+
+    async def _initialize_kernel(self):
+        logger.info("Initializing Jarvis kernel...")
+        from JARVIS.kernel.jarvis_kernel import JarvisKernel
+        kernel = JarvisKernel(self.config, self.jarvis_data_dir)
+        await kernel.initialize()
+        self.subsystems['kernel'] = kernel
+
+    async def _initialize_consciousness(self):
+        logger.info("Initializing consciousness layer...")
+        from JARVIS.consciousness.consciousness_engine import ConsciousnessEngine
+        consciousness = ConsciousnessEngine(
+            self.config.get('personality', 'jarvis_standard'),
+            self.jarvis_data_dir,
+            self.jarvis_dir
+        )
+        await consciousness.initialize()
+        self.subsystems['consciousness'] = consciousness
+
+    async def _initialize_automation(self):
+        logger.info("Initializing automation engine...")
+        from JARVIS.automation.automation_engine import AutomationEngine
+        automation = AutomationEngine(
+            self.config,
+            self.jarvis_data_dir,
+            self.subsystems.get('kernel')
+        )
+        await automation.initialize()
+        self.subsystems['automation'] = automation
+
+    async def _initialize_interface(self):
+        logger.info("Initializing system interface...")
+        from JARVIS.interface.system_interface import SystemInterface
+        interface = SystemInterface(self.config, self.jarvis_data_dir)
+        await interface.initialize()
+        self.subsystems['interface'] = interface
+
+    async def _initialize_communication(self):
+        logger.info("Initializing communication layer...")
+        from JARVIS.communication.communication_manager import CommunicationManager
+        communication = CommunicationManager(
+            self.config,
+            self.jarvis_data_dir,
+            self.subsystems.get('consciousness')
+        )
+        await communication.initialize()
+        self.subsystems['communication'] = communication
+
+    async def _initialize_security(self):
+        logger.info("Initializing security layer...")
+        from JARVIS.security.security_manager import SecurityManager
+        security = SecurityManager(
+            self.config.get('security_level', 'high'),
+            self.jarvis_data_dir
+        )
+        await security.initialize()
+        self.subsystems['security'] = security
+
+    async def _initialize_learning(self):
+        if not self.config.get('learning_enabled', True):
+            logger.info("Learning system disabled in configuration")
+            return
+        logger.info("Initializing learning system...")
+        from JARVIS.learning.learning_engine import LearningEngine
+        learning = LearningEngine(self.config, self.jarvis_data_dir)
+        await learning.initialize()
+        self.subsystems['learning'] = learning
+
+    async def _initialize_integration(self):
+        logger.info("Initializing integration layer...")
+        from JARVIS.integration.integration_manager import IntegrationManager
+        integration = IntegrationManager(
+            self.config,
+            self.jarvis_data_dir,
+            self.subsystems
+        )
+        await integration.initialize()
+        self.subsystems['integration'] = integration
+
+    async def _wire_subsystems(self):
+        """Connect subsystems that depend on each other"""
+        interface = self.subsystems.get('interface')
+        kernel = self.subsystems.get('kernel')
+        automation = self.subsystems.get('automation')
+
+        if kernel and interface:
+            kernel.set_system_interface(interface)
+
+        if automation and interface:
+            automation.set_system_interface(interface)
+
+        if automation and self.subsystems.get('communication'):
+            automation.set_communication(self.subsystems['communication'])
+
+        # Add jarvis data dir to safe paths for file operations
+        if interface:
+            interface.fs_manager.safe_directories.append(self.jarvis_data_dir)
+
+    async def _initialize_ui(self):
+        logger.info("Initializing Jarvis UI...")
+        from JARVIS.ui.jarvis_ui import JarvisUI
+        self.ui = JarvisUI(self.subsystems)
+        await self.ui.initialize()
+
+    async def _initialize_autonomous(self):
+        logger.info("Initializing autonomous agent...")
+        from JARVIS.autonomous.autonomous_agent import AutonomousAgent
+        self.autonomous_agent = AutonomousAgent(self)
+        await self.autonomous_agent.initialize()
+
+    async def process_command(self, text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Process a command through the autonomous agent"""
+        if not self.autonomous_agent:
+            return {'success': False, 'response': 'Autonomous agent not initialized'}
+        return await self.autonomous_agent.process_command(text, context)
+
+    async def _start_event_loop(self):
+        logger.info("Starting Jarvis event loop...")
+        self.event_loop = asyncio.create_task(self._event_loop_handler())
+
+    async def _event_loop_handler(self):
+        while not self.shutdown_requested:
+            try:
+                await self._process_events()
+                await self._periodic_maintenance()
+                await asyncio.sleep(self.config.get('monitoring_interval', 5))
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in event loop: {e}", exc_info=True)
+                await asyncio.sleep(1)
+
+    async def _process_events(self):
+        events = []
+        for subsystem in self.subsystems.values():
+            if hasattr(subsystem, 'get_events'):
+                subsystem_events = await subsystem.get_events()
+                events.extend(subsystem_events)
+
+        if events and 'consciousness' in self.subsystems:
+            await self.subsystems['consciousness'].process_events(events)
+
+        if events and 'automation' in self.subsystems:
+            for event in events:
+                await self.subsystems['automation'].emit_event(
+                    event.get('type', 'unknown'),
+                    event.get('data', {})
+                )
+
+    async def _periodic_maintenance(self):
+        for name, subsystem in self.subsystems.items():
+            if hasattr(subsystem, 'health_check'):
+                health = await subsystem.health_check()
+                if health != 'healthy' and not health.startswith('healthy'):
+                    logger.warning(f"Subsystem {name} health: {health}")
+
+        if 'kernel' in self.subsystems:
+            await self.subsystems['kernel'].cleanup_resources()
+
+    async def shutdown(self):
+        logger.info("Starting Jarvis OS shutdown...")
+        self.shutdown_requested = True
+        self.state = "shutting_down"
+
+        if self.autonomous_agent:
+            await self.autonomous_agent.shutdown()
+
+        if self.ui:
+            await self.ui.shutdown()
+
+        if self.event_loop:
+            self.event_loop.cancel()
+            try:
+                await self.event_loop
+            except asyncio.CancelledError:
+                pass
+
+        for name in reversed(list(self.subsystems.keys())):
+            subsystem = self.subsystems[name]
+            if hasattr(subsystem, 'shutdown'):
+                logger.info(f"Shutting down {name}...")
+                try:
+                    await subsystem.shutdown()
+                except Exception as e:
+                    logger.error(f"Error shutting down {name}: {e}", exc_info=True)
+
+        self.state = "shutdown"
+        logger.info("Jarvis OS shutdown complete")
+
+    def get_status(self) -> Dict[str, Any]:
+        uptime = datetime.now() - self.startup_time
+        subsystem_status = {}
+        for name, subsystem in self.subsystems.items():
+            if hasattr(subsystem, 'get_status'):
+                subsystem_status[name] = subsystem.get_status()
+            else:
+                subsystem_status[name] = "active"
+
+        return {
+            "version": self.version,
+            "state": self.state,
+            "uptime_seconds": uptime.total_seconds(),
+            "subsystems": subsystem_status,
+            "autonomous": self.autonomous_agent.get_status() if self.autonomous_agent else None,
+            "ui": self.ui.get_status() if self.ui else None,
+            "odysseus_connected": bool(self.odysseus_components),
+            "configuration": {
+                "personality": self.config.get('personality'),
+                "security_level": self.config.get('security_level'),
+                "learning_enabled": self.config.get('learning_enabled'),
+                "automation_enabled": self.config.get('automation_enabled'),
+                "autonomous_mode": self.config.get('autonomous_mode'),
+            }
+        }
+
+    def get_dashboard(self) -> Dict[str, Any]:
+        """Get full dashboard data for UI"""
+        if self.ui:
+            return self.ui.get_dashboard_data()
+        return {}
+
+
+_jarvis_instance: Optional[JarvisCore] = None
+
+
+def get_jarvis() -> JarvisCore:
+    global _jarvis_instance
+    if _jarvis_instance is None:
+        _jarvis_instance = JarvisCore()
+    return _jarvis_instance
+
+
+async def start_jarvis(odysseus_components: Dict[str, Any] = None) -> JarvisCore:
+    """Start Jarvis OS (used by Odysseus app startup)"""
+    jarvis = get_jarvis()
+    if odysseus_components:
+        jarvis.odysseus_components = odysseus_components
+    if jarvis.state in ("initializing", "shutdown", "error"):
+        await jarvis.initialize()
+        if odysseus_components:
+            jarvis.connect_odysseus(odysseus_components)
+    return jarvis
+
+
+async def main():
+    jarvis = get_jarvis()
+    try:
+        await jarvis.initialize()
+        print("\n" + "=" * 50)
+        print("  Jarvis OS - Autonomous AI Operating System")
+        print("  Built on Odysseus | Type 'help' for commands | 'quit' to exit")
+        print("=" * 50 + "\n")
+
+        consciousness = jarvis.subsystems.get('consciousness')
+        if consciousness:
+            print(consciousness.personality.get_greeting() + "\n")
+
+        while jarvis.state == "running":
+            try:
+                user_input = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: input("You: ").strip()
+                )
+            except EOFError:
+                break
+
+            if not user_input:
+                continue
+            if user_input.lower() in ('quit', 'exit', 'q'):
+                break
+
+            result = await jarvis.process_command(user_input)
+            print(f"Jarvis: {result.get('response', 'Done.')}\n")
+
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}", exc_info=True)
+    finally:
+        await jarvis.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

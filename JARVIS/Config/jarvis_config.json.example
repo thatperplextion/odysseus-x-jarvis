@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "personality": "jarvis_standard",
+  "security_level": "high",
+  "learning_enabled": true,
+  "automation_enabled": true,
+  "voice_enabled": true,
+  "autonomous_mode": true,
+  "autonomous_interval": 30,
+  "monitoring_interval": 5,
+  "max_concurrent_tasks": 10,
+  "resource_limits": {
+    "cpu_percent": 80,
+    "memory_percent": 80,
+    "network_bandwidth": 1000000
+  },
+  "permissions": {
+    "file_access": "restricted",
+    "process_control": "monitored",
+    "network_access": "filtered",
+    "system_changes": "authorized"
+  }
+}

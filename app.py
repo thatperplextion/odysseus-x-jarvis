@@ -723,6 +723,10 @@ app.include_router(setup_task_routes(task_scheduler))
 from routes.assistant_routes import setup_assistant_routes
 app.include_router(setup_assistant_routes(task_scheduler))
 
+# Jarvis OS - Autonomous AI operating system layer
+from routes.jarvis_routes import setup_jarvis_routes
+app.include_router(setup_jarvis_routes())
+
 # Calendar (CalDAV)
 from routes.calendar_routes import setup_calendar_routes
 calendar_router = setup_calendar_routes()
@@ -1175,6 +1179,31 @@ async def _startup_event():
     from src.cookbook_serve_lifecycle import cookbook_serve_lifecycle_loop
     _startup_tasks.append(asyncio.create_task(cookbook_serve_lifecycle_loop()))
 
+    # Jarvis OS - autonomous AI operating system layer on Odysseus
+    if os.getenv("JARVIS_ENABLED", "1").lower() not in ("0", "false", "no"):
+        async def _startup_jarvis():
+            try:
+                from JARVIS.jarvis_core import start_jarvis
+                odysseus_components = {
+                    "memory_manager": memory_manager,
+                    "memory_vector": memory_vector,
+                    "session_manager": session_manager,
+                    "chat_handler": chat_handler,
+                    "chat_processor": chat_processor,
+                    "task_scheduler": task_scheduler,
+                    "tts_service": tts_service,
+                    "skills_manager": skills_manager,
+                    "preset_manager": preset_manager,
+                }
+                jarvis = await start_jarvis(odysseus_components)
+                app.state.jarvis = jarvis
+                logger.info("Jarvis OS started and integrated with Odysseus")
+            except Exception as e:
+                logger.warning(f"Jarvis OS startup failed (non-critical): {e}")
+                app.state.jarvis = None
+
+        await _startup_jarvis()
+
     logger.info("Application startup complete")
 
 async def _shutdown_event():
@@ -1209,6 +1238,14 @@ async def _shutdown_event():
         await mcp_manager.disconnect_all()
     except Exception as e:
         logger.warning(f"MCP shutdown error: {e}")
+    # Shutdown Jarvis OS
+    jarvis = getattr(app.state, "jarvis", None)
+    if jarvis:
+        try:
+            await jarvis.shutdown()
+            logger.info("Jarvis OS shutdown complete")
+        except Exception as e:
+            logger.warning(f"Jarvis shutdown error: {e}")
     logger.info("Application shutdown complete")
 
 

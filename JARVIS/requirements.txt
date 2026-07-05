@@ -1,0 +1,23 @@
+# Jarvis OS Requirements
+# Built on top of Odysseus AI workspace platform
+
+# Core dependencies (already in Odysseus requirements.txt)
+# These are additional dependencies specific to Jarvis OS
+
+# System monitoring
+psutil>=5.9.0
+
+# Cryptography for security
+cryptography>=41.0.0
+
+# Cron scheduling for automation
+croniter>=1.4.0
+
+# Async utilities
+aiofiles>=23.0.0
+
+# Data processing
+pandas>=2.0.0
+
+# Machine learning (optional, for advanced features)
+# scikit-learn>=1.3.0
