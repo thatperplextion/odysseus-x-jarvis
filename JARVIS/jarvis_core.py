@@ -70,6 +70,7 @@ class JarvisCore:
             await self._initialize_reflection()
             await self._initialize_self_correction()
             await self._initialize_workflows()
+            await self._initialize_project_understanding()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -207,6 +208,21 @@ class JarvisCore:
         self.subsystems['workflows'] = workflows
         logger.info("Phase 1 Autonomous Workflow Engine initialized")
 
+    async def _initialize_project_understanding(self):
+        """Initialize Phase 1 Project Understanding System"""
+        logger.info("Initializing Phase 1 Project Understanding System...")
+        from JARVIS.project_understanding import ContextAwareness, CodeComprehension, DependencyMapping
+        context_awareness = ContextAwareness()
+        code_comprehension = CodeComprehension()
+        dependency_mapping = DependencyMapping()
+        await context_awareness.health_check()
+        await code_comprehension.health_check()
+        await dependency_mapping.health_check()
+        self.subsystems['context_awareness'] = context_awareness
+        self.subsystems['code_comprehension'] = code_comprehension
+        self.subsystems['dependency_mapping'] = dependency_mapping
+        logger.info("Phase 1 Project Understanding System initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -296,6 +312,9 @@ class JarvisCore:
         reflection = self.subsystems.get('reflection')
         self_correction = self.subsystems.get('self_correction')
         workflows = self.subsystems.get('workflows')
+        context_awareness = self.subsystems.get('context_awareness')
+        code_comprehension = self.subsystems.get('code_comprehension')
+        dependency_mapping = self.subsystems.get('dependency_mapping')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -325,6 +344,18 @@ class JarvisCore:
 
         if workflows and planning:
             # Workflows can execute plans
+            pass  # Integration point for future enhancement
+
+        if context_awareness and reasoning:
+            # Context awareness provides context for reasoning
+            pass  # Integration point for future enhancement
+
+        if code_comprehension and context_awareness:
+            # Code comprehension enhances project understanding
+            pass  # Integration point for future enhancement
+
+        if dependency_mapping and code_comprehension:
+            # Dependency mapping complements code analysis
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
