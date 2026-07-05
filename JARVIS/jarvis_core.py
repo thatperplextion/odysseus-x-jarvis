@@ -30,7 +30,7 @@ class JarvisCore:
     """
 
     def __init__(self):
-        self.version = "1.0.0"
+        self.version = "1.1.0"  # Phase 1 version
         self.startup_time = datetime.now()
         self.subsystems = {}
         self.state = "initializing"
@@ -45,7 +45,7 @@ class JarvisCore:
         self.jarvis_data_dir = Path(DATA_DIR) / "jarvis"
         self.jarvis_data_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Jarvis OS v{self.version} initializing...")
+        logger.info(f"Jarvis OS v{self.version} initializing (Phase 1 - Core AI Engine)...")
         logger.info(f"Jarvis data directory: {self.jarvis_data_dir}")
 
     def connect_odysseus(self, components: Dict[str, Any]):
@@ -63,6 +63,11 @@ class JarvisCore:
         try:
             await self._load_configuration()
 
+            # Phase 1: Core AI Engine components
+            await self._initialize_planning()
+            await self._initialize_reasoning()
+
+            # Original subsystems
             await self._initialize_kernel()
             await self._initialize_consciousness()
             await self._initialize_automation()
@@ -143,6 +148,24 @@ class JarvisCore:
                 json.dump(self.config, f, indent=2)
 
         logger.info(f"Configuration loaded: {len(self.config)} settings")
+
+    async def _initialize_planning(self):
+        """Initialize Phase 1 Enhanced Planner"""
+        logger.info("Initializing Phase 1 Enhanced Planner...")
+        from JARVIS.planning import EnhancedPlanner
+        planner = EnhancedPlanner()
+        await planner.health_check()
+        self.subsystems['planning'] = planner
+        logger.info("Phase 1 Enhanced Planner initialized")
+
+    async def _initialize_reasoning(self):
+        """Initialize Phase 1 Reasoning Engine"""
+        logger.info("Initializing Phase 1 Reasoning Engine...")
+        from JARVIS.reasoning import ReasoningEngine
+        reasoning = ReasoningEngine()
+        await reasoning.health_check()
+        self.subsystems['reasoning'] = reasoning
+        logger.info("Phase 1 Reasoning Engine initialized")
 
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
@@ -227,6 +250,8 @@ class JarvisCore:
         interface = self.subsystems.get('interface')
         kernel = self.subsystems.get('kernel')
         automation = self.subsystems.get('automation')
+        planning = self.subsystems.get('planning')
+        reasoning = self.subsystems.get('reasoning')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -236,6 +261,11 @@ class JarvisCore:
 
         if automation and self.subsystems.get('communication'):
             automation.set_communication(self.subsystems['communication'])
+
+        # Wire Phase 1 components
+        if planning and reasoning:
+            # Reasoning can inform planning
+            pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
         if interface:
