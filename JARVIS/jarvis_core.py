@@ -66,6 +66,8 @@ class JarvisCore:
             # Phase 1: Core AI Engine components
             await self._initialize_planning()
             await self._initialize_reasoning()
+            await self._initialize_memory()
+            await self._initialize_reflection()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -167,6 +169,24 @@ class JarvisCore:
         self.subsystems['reasoning'] = reasoning
         logger.info("Phase 1 Reasoning Engine initialized")
 
+    async def _initialize_memory(self):
+        """Initialize Phase 1 Enhanced Memory"""
+        logger.info("Initializing Phase 1 Enhanced Memory...")
+        from JARVIS.memory import EnhancedMemory
+        memory = EnhancedMemory(self.jarvis_data_dir)
+        await memory.initialize()
+        self.subsystems['memory'] = memory
+        logger.info("Phase 1 Enhanced Memory initialized")
+
+    async def _initialize_reflection(self):
+        """Initialize Phase 1 Reflection Engine"""
+        logger.info("Initializing Phase 1 Reflection Engine...")
+        from JARVIS.reflection import ReflectionEngine
+        reflection = ReflectionEngine()
+        await reflection.health_check()
+        self.subsystems['reflection'] = reflection
+        logger.info("Phase 1 Reflection Engine initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -252,6 +272,8 @@ class JarvisCore:
         automation = self.subsystems.get('automation')
         planning = self.subsystems.get('planning')
         reasoning = self.subsystems.get('reasoning')
+        memory = self.subsystems.get('memory')
+        reflection = self.subsystems.get('reflection')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -265,6 +287,14 @@ class JarvisCore:
         # Wire Phase 1 components
         if planning and reasoning:
             # Reasoning can inform planning
+            pass  # Integration point for future enhancement
+
+        if memory and reflection:
+            # Reflection uses memory for analysis
+            pass  # Integration point for future enhancement
+
+        if reasoning and memory:
+            # Reasoning can access memory for context
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
