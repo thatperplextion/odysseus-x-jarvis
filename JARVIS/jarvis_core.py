@@ -68,6 +68,8 @@ class JarvisCore:
             await self._initialize_reasoning()
             await self._initialize_memory()
             await self._initialize_reflection()
+            await self._initialize_self_correction()
+            await self._initialize_workflows()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -187,6 +189,24 @@ class JarvisCore:
         self.subsystems['reflection'] = reflection
         logger.info("Phase 1 Reflection Engine initialized")
 
+    async def _initialize_self_correction(self):
+        """Initialize Phase 1 Self-Correction System"""
+        logger.info("Initializing Phase 1 Self-Correction System...")
+        from JARVIS.self_correction import SelfCorrection
+        self_correction = SelfCorrection()
+        await self_correction.health_check()
+        self.subsystems['self_correction'] = self_correction
+        logger.info("Phase 1 Self-Correction System initialized")
+
+    async def _initialize_workflows(self):
+        """Initialize Phase 1 Autonomous Workflow Engine"""
+        logger.info("Initializing Phase 1 Autonomous Workflow Engine...")
+        from JARVIS.workflows import AutonomousWorkflowEngine
+        workflows = AutonomousWorkflowEngine()
+        await workflows.health_check()
+        self.subsystems['workflows'] = workflows
+        logger.info("Phase 1 Autonomous Workflow Engine initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -274,6 +294,8 @@ class JarvisCore:
         reasoning = self.subsystems.get('reasoning')
         memory = self.subsystems.get('memory')
         reflection = self.subsystems.get('reflection')
+        self_correction = self.subsystems.get('self_correction')
+        workflows = self.subsystems.get('workflows')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -295,6 +317,14 @@ class JarvisCore:
 
         if reasoning and memory:
             # Reasoning can access memory for context
+            pass  # Integration point for future enhancement
+
+        if self_correction and workflows:
+            # Self-correction can handle workflow errors
+            pass  # Integration point for future enhancement
+
+        if workflows and planning:
+            # Workflows can execute plans
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
