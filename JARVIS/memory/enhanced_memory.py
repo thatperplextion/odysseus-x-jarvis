@@ -249,6 +249,12 @@ class EnhancedMemory:
         
         return related[:limit]
     
+    def get_recent_memories(self, limit: int = 10) -> List[Memory]:
+        """Get most recent memories"""
+        memories = list(self.memories.values())
+        memories.sort(key=lambda m: m.created_at, reverse=True)
+        return memories[:limit]
+    
     def link_memories(self, memory_id_1: str, memory_id_2: str):
         """Create a bidirectional link between two memories"""
         if memory_id_1 in self.memories and memory_id_2 in self.memories:
