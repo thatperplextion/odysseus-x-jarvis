@@ -72,6 +72,9 @@ class JarvisCore:
             await self._initialize_workflows()
             await self._initialize_project_understanding()
 
+            # Phase 2: Advanced AI Features
+            await self._initialize_nlu()
+
             # Original subsystems
             await self._initialize_kernel()
             await self._initialize_consciousness()
@@ -223,6 +226,21 @@ class JarvisCore:
         self.subsystems['dependency_mapping'] = dependency_mapping
         logger.info("Phase 1 Project Understanding System initialized")
 
+    async def _initialize_nlu(self):
+        """Initialize Phase 2 Natural Language Understanding System"""
+        logger.info("Initializing Phase 2 Natural Language Understanding System...")
+        from JARVIS.nlu import IntentRecognizer, EntityExtractor, SentimentAnalyzer
+        intent_recognizer = IntentRecognizer()
+        entity_extractor = EntityExtractor()
+        sentiment_analyzer = SentimentAnalyzer()
+        await intent_recognizer.health_check()
+        await entity_extractor.health_check()
+        await sentiment_analyzer.health_check()
+        self.subsystems['intent_recognizer'] = intent_recognizer
+        self.subsystems['entity_extractor'] = entity_extractor
+        self.subsystems['sentiment_analyzer'] = sentiment_analyzer
+        logger.info("Phase 2 Natural Language Understanding System initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -315,6 +333,9 @@ class JarvisCore:
         context_awareness = self.subsystems.get('context_awareness')
         code_comprehension = self.subsystems.get('code_comprehension')
         dependency_mapping = self.subsystems.get('dependency_mapping')
+        intent_recognizer = self.subsystems.get('intent_recognizer')
+        entity_extractor = self.subsystems.get('entity_extractor')
+        sentiment_analyzer = self.subsystems.get('sentiment_analyzer')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -356,6 +377,18 @@ class JarvisCore:
 
         if dependency_mapping and code_comprehension:
             # Dependency mapping complements code analysis
+            pass  # Integration point for future enhancement
+
+        if intent_recognizer and reasoning:
+            # Intent recognition can inform reasoning
+            pass  # Integration point for future enhancement
+
+        if entity_extractor and context_awareness:
+            # Entity extraction enhances context understanding
+            pass  # Integration point for future enhancement
+
+        if sentiment_analyzer and memory:
+            # Sentiment analysis can enhance memory storage
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
