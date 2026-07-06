@@ -74,6 +74,7 @@ class JarvisCore:
 
             # Phase 2: Advanced AI Features
             await self._initialize_nlu()
+            await self._initialize_advanced_learning()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -241,6 +242,24 @@ class JarvisCore:
         self.subsystems['sentiment_analyzer'] = sentiment_analyzer
         logger.info("Phase 2 Natural Language Understanding System initialized")
 
+    async def _initialize_advanced_learning(self):
+        """Initialize Phase 2 Advanced Learning System"""
+        logger.info("Initializing Phase 2 Advanced Learning System...")
+        from JARVIS.learning import ReinforcementLearner, MachineLearningEngine, KnowledgeGraph, AdaptiveLearner
+        rl_learner = ReinforcementLearner()
+        ml_engine = MachineLearningEngine()
+        knowledge_graph = KnowledgeGraph()
+        adaptive_learner = AdaptiveLearner()
+        await rl_learner.health_check()
+        await ml_engine.health_check()
+        await knowledge_graph.health_check()
+        await adaptive_learner.health_check()
+        self.subsystems['reinforcement_learner'] = rl_learner
+        self.subsystems['ml_engine'] = ml_engine
+        self.subsystems['knowledge_graph'] = knowledge_graph
+        self.subsystems['adaptive_learner'] = adaptive_learner
+        logger.info("Phase 2 Advanced Learning System initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -336,6 +355,10 @@ class JarvisCore:
         intent_recognizer = self.subsystems.get('intent_recognizer')
         entity_extractor = self.subsystems.get('entity_extractor')
         sentiment_analyzer = self.subsystems.get('sentiment_analyzer')
+        reinforcement_learner = self.subsystems.get('reinforcement_learner')
+        ml_engine = self.subsystems.get('ml_engine')
+        knowledge_graph = self.subsystems.get('knowledge_graph')
+        adaptive_learner = self.subsystems.get('adaptive_learner')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -389,6 +412,22 @@ class JarvisCore:
 
         if sentiment_analyzer and memory:
             # Sentiment analysis can enhance memory storage
+            pass  # Integration point for future enhancement
+
+        if reinforcement_learner and workflows:
+            # RL can optimize workflow execution
+            pass  # Integration point for future enhancement
+
+        if ml_engine and reasoning:
+            # ML models can enhance reasoning
+            pass  # Integration point for future enhancement
+
+        if knowledge_graph and memory:
+            # Knowledge graph can enhance memory retrieval
+            pass  # Integration point for future enhancement
+
+        if adaptive_learner and self_correction:
+            # Adaptive learning can enhance self-correction
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
