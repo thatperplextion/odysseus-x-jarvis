@@ -75,6 +75,7 @@ class JarvisCore:
             # Phase 2: Advanced AI Features
             await self._initialize_nlu()
             await self._initialize_advanced_learning()
+            await self._initialize_multi_agent()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -260,6 +261,24 @@ class JarvisCore:
         self.subsystems['adaptive_learner'] = adaptive_learner
         logger.info("Phase 2 Advanced Learning System initialized")
 
+    async def _initialize_multi_agent(self):
+        """Initialize Phase 2 Multi-Agent System"""
+        logger.info("Initializing Phase 2 Multi-Agent System...")
+        from JARVIS.agents import AgentSystem, AgentCommunication, Coordinator, TaskDistributor
+        agent_system = AgentSystem()
+        agent_comm = AgentCommunication()
+        coordinator = Coordinator()
+        task_distributor = TaskDistributor()
+        await agent_system.health_check()
+        await agent_comm.health_check()
+        await coordinator.health_check()
+        await task_distributor.health_check()
+        self.subsystems['agent_system'] = agent_system
+        self.subsystems['agent_communication'] = agent_comm
+        self.subsystems['coordinator'] = coordinator
+        self.subsystems['task_distributor'] = task_distributor
+        logger.info("Phase 2 Multi-Agent System initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -359,6 +378,10 @@ class JarvisCore:
         ml_engine = self.subsystems.get('ml_engine')
         knowledge_graph = self.subsystems.get('knowledge_graph')
         adaptive_learner = self.subsystems.get('adaptive_learner')
+        agent_system = self.subsystems.get('agent_system')
+        agent_communication = self.subsystems.get('agent_communication')
+        coordinator = self.subsystems.get('coordinator')
+        task_distributor = self.subsystems.get('task_distributor')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -428,6 +451,22 @@ class JarvisCore:
 
         if adaptive_learner and self_correction:
             # Adaptive learning can enhance self-correction
+            pass  # Integration point for future enhancement
+
+        if agent_system and workflows:
+            # Agent system can execute workflows
+            pass  # Integration point for future enhancement
+
+        if agent_communication and planning:
+            # Agent communication can enhance planning coordination
+            pass  # Integration point for future enhancement
+
+        if coordinator and reasoning:
+            # Coordinator can enhance reasoning with multi-agent consensus
+            pass  # Integration point for future enhancement
+
+        if task_distributor and workflows:
+            # Task distributor can optimize workflow task assignment
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
