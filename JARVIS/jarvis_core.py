@@ -76,6 +76,7 @@ class JarvisCore:
             await self._initialize_nlu()
             await self._initialize_advanced_learning()
             await self._initialize_multi_agent()
+            await self._initialize_advanced_reasoning()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -279,6 +280,24 @@ class JarvisCore:
         self.subsystems['task_distributor'] = task_distributor
         logger.info("Phase 2 Multi-Agent System initialized")
 
+    async def _initialize_advanced_reasoning(self):
+        """Initialize Phase 2 Advanced Reasoning System"""
+        logger.info("Initializing Phase 2 Advanced Reasoning System...")
+        from JARVIS.reasoning import CausalReasoner, AbductiveReasoner, AnalogicalReasoner, MetaReasoner
+        causal_reasoner = CausalReasoner()
+        abductive_reasoner = AbductiveReasoner()
+        analogical_reasoner = AnalogicalReasoner()
+        meta_reasoner = MetaReasoner()
+        await causal_reasoner.health_check()
+        await abductive_reasoner.health_check()
+        await analogical_reasoner.health_check()
+        await meta_reasoner.health_check()
+        self.subsystems['causal_reasoner'] = causal_reasoner
+        self.subsystems['abductive_reasoner'] = abductive_reasoner
+        self.subsystems['analogical_reasoner'] = analogical_reasoner
+        self.subsystems['meta_reasoner'] = meta_reasoner
+        logger.info("Phase 2 Advanced Reasoning System initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -382,6 +401,10 @@ class JarvisCore:
         agent_communication = self.subsystems.get('agent_communication')
         coordinator = self.subsystems.get('coordinator')
         task_distributor = self.subsystems.get('task_distributor')
+        causal_reasoner = self.subsystems.get('causal_reasoner')
+        abductive_reasoner = self.subsystems.get('abductive_reasoner')
+        analogical_reasoner = self.subsystems.get('analogical_reasoner')
+        meta_reasoner = self.subsystems.get('meta_reasoner')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -467,6 +490,22 @@ class JarvisCore:
 
         if task_distributor and workflows:
             # Task distributor can optimize workflow task assignment
+            pass  # Integration point for future enhancement
+
+        if causal_reasoner and reasoning:
+            # Causal reasoning can enhance reasoning with cause-effect analysis
+            pass  # Integration point for future enhancement
+
+        if abductive_reasoner and planning:
+            # Abductive reasoning can enhance planning with explanation generation
+            pass  # Integration point for future enhancement
+
+        if analogical_reasoner and knowledge_graph:
+            # Analogical reasoning can enhance knowledge graph with similarity matching
+            pass  # Integration point for future enhancement
+
+        if meta_reasoner and self_correction:
+            # Meta-reasoning can enhance self-correction with reasoning evaluation
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations
