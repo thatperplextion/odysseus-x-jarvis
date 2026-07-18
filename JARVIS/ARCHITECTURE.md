@@ -1,5 +1,8 @@
 # Jarvis Operating System Architecture
 
+**Version**: 1.0.0  
+**Last Updated**: July 18, 2026
+
 ## Overview
 Jarvis is a fully automated AI operating system built on top of the Odysseus AI workspace platform. It transforms Odysseus from a chat interface into a complete OS-level AI assistant with system-wide control, automation, and intelligence.
 
