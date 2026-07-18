@@ -12,6 +12,7 @@ sys.path.insert(0, 'c:\\Users\\JUNAID ASAD KHAN\\odysseus-1')
 
 from JARVIS.nlu import IntentRecognizer, EntityExtractor, SentimentAnalyzer
 from JARVIS.learning import ReinforcementLearner, MachineLearningEngine, KnowledgeGraph, AdaptiveLearner
+from JARVIS.learning.knowledge_graph import RelationType as KGRelationType
 from JARVIS.agents import AgentSystem, AgentCommunication, Coordinator, TaskDistributor
 from JARVIS.agents.agent_system import TaskPriority as AgentTaskPriority, AgentType
 from JARVIS.agents.agent_communication import MessageType
@@ -44,13 +45,13 @@ async def test_phase2_week1_nlu():
     # Test 2: Entity extraction
     print("\n2. Testing entity extraction...")
     entities = entity_extractor.extract_entities("Contact user@example.com")
-    print(f"   ✓ Entities: {len(entities)}")
+    print(f"   [PASS] Entities: {len(entities)}")
     assert len(entities) > 0
     
     # Test 3: Sentiment analysis
     print("\n3. Testing sentiment analysis...")
     result = sentiment_analyzer.analyze_sentiment("This is great!")
-    print(f"   ✓ Sentiment: {result.sentiment.value}")
+    print(f"   [PASS] Sentiment: {result.sentiment.value}")
     assert result.sentiment.value == "positive"
     
     # Test 4: NLU pipeline
@@ -59,9 +60,9 @@ async def test_phase2_week1_nlu():
     intent = intent_recognizer.recognize_intent(text)
     entities = entity_extractor.extract_entities(text)
     sentiment = sentiment_analyzer.analyze_sentiment(text)
-    print(f"   ✓ Pipeline complete: {intent.intent.value}, {len(entities)} entities, {sentiment.sentiment.value}")
+    print(f"   [PASS] Pipeline complete: {intent.intent.value}, {len(entities)} entities, {sentiment.sentiment.value}")
     
-    print("\n✅ Phase 2 Week 1 tests passed")
+    print("\n[PASS] Phase 2 Week 1 tests passed")
     return True
 
 
@@ -83,7 +84,7 @@ async def test_phase2_week2_learning():
     state = State(id="s1", features={"task": "analysis"})
     action = rl_learner.choose_action(state, [ActionType.ANALYSIS])
     rl_learner.update_q_table(state, action, reward=1.0, next_state=None, done=True)
-    print(f"   ✓ RL action: {action.action_type.value}")
+    print(f"   [PASS] RL action: {action.action_type.value}")
     
     # Test 2: Machine learning
     print("\n2. Testing machine learning...")
@@ -91,23 +92,23 @@ async def test_phase2_week2_learning():
     classifier.add_rule(conditions={"type": "code"}, prediction="analyze")
     from JARVIS.learning.machine_learning import Feature
     prediction = classifier.predict([Feature(name="type", value="code")])
-    print(f"   ✓ ML prediction: {prediction.predicted_value}")
+    print(f"   [PASS] ML prediction: {prediction.predicted_value}")
     
     # Test 3: Knowledge graph
     print("\n3. Testing knowledge graph...")
     node1 = knowledge_graph.add_node("Python", "concept")
     node2 = knowledge_graph.add_node("Code", "concept")
-    knowledge_graph.add_edge(node1.id, node2.id, knowledge_graph.RelationType.RELATED_TO)
-    print(f"   ✓ KG nodes: {len(knowledge_graph.nodes)}")
+    knowledge_graph.add_edge(node1.id, node2.id, KGRelationType.RELATED_TO)
+    print(f"   [PASS] KG nodes: {len(knowledge_graph.nodes)}")
     
     # Test 4: Adaptive learning
     print("\n4. Testing adaptive learning...")
     from JARVIS.learning.adaptive_learning import PerformanceMetric
     adaptive_learner.record_performance(PerformanceMetric.ACCURACY, 0.9)
     adaptation = adaptive_learner.auto_adapt()
-    print(f"   ✓ Adaptations: {len(adaptation)}")
+    print(f"   [PASS] Adaptations: {len(adaptation)}")
     
-    print("\n✅ Phase 2 Week 2 tests passed")
+    print("\n[PASS] Phase 2 Week 2 tests passed")
     return True
 
 
@@ -128,18 +129,18 @@ async def test_phase2_week3_agents():
     agent = agent_system.create_agent("Worker1", AgentType.WORKER, {"analysis"})
     task = agent_system.create_task("Analyze", "Analyze code", "analysis", AgentTaskPriority.HIGH, {"analysis"})
     agent_system.assign_task(task.id, agent.id)
-    print(f"   ✓ Agent assigned task: {agent.current_task}")
+    print(f"   [PASS] Agent assigned task: {agent.current_task}")
     
     # Test 2: Agent communication
     print("\n2. Testing agent communication...")
     agent_comm.register_agent(agent.id)
     msg_id = agent_comm.send_message(agent.id, "coordinator", MessageType.STATUS, {"status": "busy"})
-    print(f"   ✓ Message sent: {msg_id}")
+    print(f"   [PASS] Message sent: {msg_id}")
     
     # Test 3: Coordination
     print("\n3. Testing coordination...")
     event = coordinator.start_coordination({agent.id}, task.id)
-    print(f"   ✓ Coordination event: {event.id}")
+    print(f"   [PASS] Coordination event: {event.id}")
     
     # Test 4: Task distribution
     print("\n4. Testing task distribution...")
@@ -147,9 +148,9 @@ async def test_phase2_week3_agents():
     load = AgentLoad(agent_id=agent.id, performance_score=0.8)
     task_distributor.register_agent(agent.id, load)
     result = task_distributor.distribute_task("task1")
-    print(f"   ✓ Task distributed to: {result.assigned_agent}")
+    print(f"   [PASS] Task distributed to: {result.assigned_agent}")
     
-    print("\n✅ Phase 2 Week 3 tests passed")
+    print("\n[PASS] Phase 2 Week 3 tests passed")
     return True
 
 
@@ -171,29 +172,29 @@ async def test_phase2_week4_reasoning():
     node2 = causal_reasoner.add_node("Bug", "cause")
     causal_reasoner.add_edge(node2.id, node1.id, CausalRelation.DIRECT, 0.8)
     causes = causal_reasoner.find_causes(node1.id)
-    print(f"   ✓ Causes found: {len(causes)}")
+    print(f"   [PASS] Causes found: {len(causes)}")
     
     # Test 2: Abductive reasoning
     print("\n2. Testing abductive reasoning...")
     obs = abductive_reasoner.add_observation("System error occurred")
     inference = abductive_reasoner.explain(obs)
-    print(f"   ✓ Explanation: {inference.best_hypothesis.explanation if inference.best_hypothesis else 'None'}")
+    print(f"   [PASS] Explanation: {inference.best_hypothesis.explanation if inference.best_hypothesis else 'None'}")
     
     # Test 3: Analogical reasoning
     print("\n3. Testing analogical reasoning...")
     concept1 = analogical_reasoner.add_concept("Python", {"type": "language"})
     concept2 = analogical_reasoner.add_concept("Java", {"type": "language"})
     analogies = analogical_reasoner.find_analogies(concept1.id)
-    print(f"   ✓ Analogies found: {len(analogies)}")
+    print(f"   [PASS] Analogies found: {len(analogies)}")
     
     # Test 4: Meta-reasoning
     print("\n4. Testing meta-reasoning...")
     process = meta_reasoner.create_process("Test reasoning")
     meta_reasoner.add_step(process.id, ReasoningType.DEDUCTIVE, {"premise": "A"}, {"conclusion": "B"}, 0.9)
     meta_reasoner.complete_process(process.id, "Result")
-    print(f"   ✓ Process quality: {process.quality:.2f}")
+    print(f"   [PASS] Process quality: {process.quality:.2f}")
     
-    print("\n✅ Phase 2 Week 4 tests passed")
+    print("\n[PASS] Phase 2 Week 4 tests passed")
     return True
 
 
@@ -231,8 +232,8 @@ async def test_phase2_cross_week_integration():
     
     # Use entities for knowledge graph
     if entities:
-        node = knowledge_graph.add_node(entities[0].value, "entity")
-        print(f"   ✓ NLU entities added to KG: {node.id}")
+        node = knowledge_graph.add_node(entities[0].text, "entity")
+        print(f"   [PASS] NLU entities added to KG: {node.id}")
     
     # Test 2: Learning + Agents integration
     print("\n2. Testing Learning + Agents integration...")
@@ -243,7 +244,7 @@ async def test_phase2_cross_week_integration():
     from JARVIS.learning.reinforcement_learning import State, Action, ActionType
     state = State(id="task_state", features={"task": "learning"})
     action = rl_learner.choose_action(state, [ActionType.ANALYSIS])
-    print(f"   ✓ RL action for agent task: {action.action_type.value}")
+    print(f"   [PASS] RL action for agent task: {action.action_type.value}")
     
     # Test 3: Agents + Reasoning integration
     print("\n3. Testing Agents + Reasoning integration...")
@@ -254,7 +255,7 @@ async def test_phase2_cross_week_integration():
     process = meta_reasoner.create_process("Agent evaluation")
     meta_reasoner.add_step(process.id, ReasoningType.ABDUCTIVE, {"obs": obs.id}, {"hyp": "explanation"}, 0.8)
     meta_reasoner.complete_process(process.id, "Evaluation complete")
-    print(f"   ✓ Agent evaluation quality: {process.quality:.2f}")
+    print(f"   [PASS] Agent evaluation quality: {process.quality:.2f}")
     
     # Test 4: Full Phase 2 pipeline
     print("\n4. Testing full Phase 2 pipeline...")
@@ -267,7 +268,7 @@ async def test_phase2_cross_week_integration():
     # Learning: add to knowledge graph
     if entities:
         for entity in entities:
-            node = knowledge_graph.add_node(entity.value, "entity")
+            node = knowledge_graph.add_node(entity.text, "entity")
     
     # Agents: create task
     task = agent_system.create_task("Performance Analysis", "Analyze system performance", "analysis", 
@@ -282,7 +283,7 @@ async def test_phase2_cross_week_integration():
     meta_reasoner.add_step(process.id, ReasoningType.ABDUCTIVE, {"obs": obs.id}, {"hyp": "explanation"}, 0.9)
     meta_reasoner.complete_process(process.id, "Pipeline complete")
     
-    print(f"   ✓ Full pipeline executed with quality: {process.quality:.2f}")
+    print(f"   [PASS] Full pipeline executed with quality: {process.quality:.2f}")
     
     # Test 5: Cross-component statistics
     print("\n5. Testing cross-component statistics...")
@@ -291,12 +292,12 @@ async def test_phase2_cross_week_integration():
     agent_stats = agent_system.get_agent_statistics()
     reasoning_stats = meta_reasoner.get_statistics()
     
-    print(f"   ✓ NLU: {nlu_stats}")
-    print(f"   ✓ Learning models: {learning_stats['total_classifiers'] + learning_stats['total_regressors']}")
-    print(f"   ✓ Agents: {agent_stats['total_agents']}")
-    print(f"   ✓ Reasoning processes: {reasoning_stats['total_processes']}")
+    print(f"   [PASS] NLU: {nlu_stats}")
+    print(f"   [PASS] Learning models: {learning_stats['total_classifiers'] + learning_stats['total_regressors']}")
+    print(f"   [PASS] Agents: {agent_stats['total_agents']}")
+    print(f"   [PASS] Reasoning processes: {reasoning_stats['total_processes']}")
     
-    print("\n✅ Phase 2 Cross-Week Integration tests passed")
+    print("\n[PASS] Phase 2 Cross-Week Integration tests passed")
     return True
 
 
@@ -332,7 +333,7 @@ async def test_phase2_performance():
     for i in range(100):
         nlu_intent.recognize_intent("Analyze the file")
     nlu_time = (time.time() - start) / 100
-    print(f"   ✓ Intent recognition: {nlu_time*1000:.2f}ms avg")
+    print(f"   [PASS] Intent recognition: {nlu_time*1000:.2f}ms avg")
     
     # Test 2: Learning performance
     print("\n2. Testing Learning performance...")
@@ -342,7 +343,7 @@ async def test_phase2_performance():
         state = State(id=f"s{i}", features={"task": "analysis"})
         action = rl_learner.choose_action(state, [ActionType.ANALYSIS])
     learning_time = (time.time() - start) / 100
-    print(f"   ✓ RL action selection: {learning_time*1000:.2f}ms avg")
+    print(f"   [PASS] RL action selection: {learning_time*1000:.2f}ms avg")
     
     # Test 3: Agent performance
     print("\n3. Testing Agent performance...")
@@ -350,7 +351,7 @@ async def test_phase2_performance():
     for i in range(100):
         agent_system.create_task(f"Task{i}", f"Description{i}", "analysis", AgentTaskPriority.MEDIUM)
     agent_time = (time.time() - start) / 100
-    print(f"   ✓ Task creation: {agent_time*1000:.2f}ms avg")
+    print(f"   [PASS] Task creation: {agent_time*1000:.2f}ms avg")
     
     # Test 4: Reasoning performance
     print("\n4. Testing Reasoning performance...")
@@ -359,7 +360,7 @@ async def test_phase2_performance():
         obs = abductive_reasoner.add_observation(f"Observation{i}")
         abductive_reasoner.explain(obs)
     reasoning_time = (time.time() - start) / 100
-    print(f"   ✓ Abductive explanation: {reasoning_time*1000:.2f}ms avg")
+    print(f"   [PASS] Abductive explanation: {reasoning_time*1000:.2f}ms avg")
     
     # Test 5: Full pipeline performance
     print("\n5. Testing full pipeline performance...")
@@ -371,9 +372,9 @@ async def test_phase2_performance():
     obs = abductive_reasoner.add_observation(text)
     inference = abductive_reasoner.explain(obs)
     pipeline_time = time.time() - start
-    print(f"   ✓ Full pipeline: {pipeline_time*1000:.2f}ms")
+    print(f"   [PASS] Full pipeline: {pipeline_time*1000:.2f}ms")
     
-    print("\n✅ Phase 2 Performance tests passed")
+    print("\n[PASS] Phase 2 Performance tests passed")
     return True
 
 
@@ -388,37 +389,37 @@ async def run_all_tests():
     try:
         results['week1_nlu'] = await test_phase2_week1_nlu()
     except Exception as e:
-        print(f"\n❌ Week 1 NLU tests failed: {e}")
+        print(f"\n[FAIL] Week 1 NLU tests failed: {e}")
         results['week1_nlu'] = False
     
     try:
         results['week2_learning'] = await test_phase2_week2_learning()
     except Exception as e:
-        print(f"\n❌ Week 2 Learning tests failed: {e}")
+        print(f"\n[FAIL] Week 2 Learning tests failed: {e}")
         results['week2_learning'] = False
     
     try:
         results['week3_agents'] = await test_phase2_week3_agents()
     except Exception as e:
-        print(f"\n❌ Week 3 Agents tests failed: {e}")
+        print(f"\n[FAIL] Week 3 Agents tests failed: {e}")
         results['week3_agents'] = False
     
     try:
         results['week4_reasoning'] = await test_phase2_week4_reasoning()
     except Exception as e:
-        print(f"\n❌ Week 4 Reasoning tests failed: {e}")
+        print(f"\n[FAIL] Week 4 Reasoning tests failed: {e}")
         results['week4_reasoning'] = False
     
     try:
         results['cross_week_integration'] = await test_phase2_cross_week_integration()
     except Exception as e:
-        print(f"\n❌ Cross-week integration tests failed: {e}")
+        print(f"\n[FAIL] Cross-week integration tests failed: {e}")
         results['cross_week_integration'] = False
     
     try:
         results['performance'] = await test_phase2_performance()
     except Exception as e:
-        print(f"\n❌ Performance tests failed: {e}")
+        print(f"\n[FAIL] Performance tests failed: {e}")
         results['performance'] = False
     
     # Summary
@@ -426,7 +427,7 @@ async def run_all_tests():
     print("TEST SUMMARY")
     print("="*60)
     for test_name, passed in results.items():
-        status = "✅ PASS" if passed else "❌ FAIL"
+        status = "[PASS]" if passed else "[FAIL]"
         print(f"{status}: {test_name}")
     
     total = len(results)
@@ -434,10 +435,10 @@ async def run_all_tests():
     print(f"\nTotal: {passed}/{total} tests passed")
     
     if passed == total:
-        print("\n🎉 All Phase 2 integration tests passed successfully!")
+        print("\n[SUCCESS] All Phase 2 integration tests passed successfully!")
         return True
     else:
-        print(f"\n⚠️  {total - passed} test(s) failed")
+        print(f"\n[WARNING] {total - passed} test(s) failed")
         return False
 
 
