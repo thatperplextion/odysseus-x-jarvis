@@ -286,7 +286,9 @@ class TaskDistributor:
     async def health_check(self) -> str:
         """Health check for the task distributor"""
         stats = self.get_load_statistics()
-        return f"healthy ({stats['total_agents']} agents, {stats['average_load']:.2f} avg load)"
+        registered_agents = len(self.agent_loads)
+        avg_load = sum(load.performance_score for load in self.agent_loads.values()) / registered_agents if registered_agents else 0
+        return f"healthy ({registered_agents} agents, {avg_load:.2f} avg load)"
     
     async def shutdown(self):
         """Shutdown the task distributor"""
