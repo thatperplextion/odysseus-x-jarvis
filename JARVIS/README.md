@@ -203,3 +203,13 @@ For issues and questions:
 1. Check the documentation in `JARVIS/Docs/`
 2. Review the architecture in `JARVIS/ARCHITECTURE.md`
 3. Open an issue on the Odysseus repository
+
+## Phase 2 Features
+
+Jarvis OS now includes advanced AI capabilities:
+- Natural Language Understanding (NLU)
+- Advanced Learning (Reinforcement Learning, ML, Knowledge Graphs)
+- Multi-Agent Coordination
+- Advanced Reasoning (Causal, Abductive, Analogical, Meta-reasoning)
+
+See `JARVIS/PHASE2_COMPLETION.md` for details.
