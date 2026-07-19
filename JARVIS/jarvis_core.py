@@ -77,6 +77,7 @@ class JarvisCore:
             await self._initialize_advanced_learning()
             await self._initialize_multi_agent()
             await self._initialize_advanced_reasoning()
+            await self._initialize_os_operations()
 
             # Original subsystems
             await self._initialize_kernel()
@@ -298,6 +299,20 @@ class JarvisCore:
         self.subsystems['meta_reasoner'] = meta_reasoner
         logger.info("Phase 2 Advanced Reasoning System initialized")
 
+    async def _initialize_os_operations(self):
+        """Initialize OS Operations Manager"""
+        logger.info("Initializing OS Operations Manager...")
+        from JARVIS.os_integration import OSOperations
+        os_ops = OSOperations()
+        
+        # Add default allowed paths (can be configured)
+        os_ops.add_allowed_path(str(self.jarvis_data_dir), read_only=False)
+        os_ops.add_allowed_path(str(Path.home()), read_only=False)
+        
+        await os_ops.health_check()
+        self.subsystems['os_operations'] = os_ops
+        logger.info("OS Operations Manager initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -405,6 +420,7 @@ class JarvisCore:
         abductive_reasoner = self.subsystems.get('abductive_reasoner')
         analogical_reasoner = self.subsystems.get('analogical_reasoner')
         meta_reasoner = self.subsystems.get('meta_reasoner')
+        os_operations = self.subsystems.get('os_operations')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -506,6 +522,22 @@ class JarvisCore:
 
         if meta_reasoner and self_correction:
             # Meta-reasoning can enhance self-correction with reasoning evaluation
+            pass  # Integration point for future enhancement
+
+        if os_operations and automation:
+            # OS operations can execute automation tasks
+            pass  # Integration point for future enhancement
+
+        if os_operations and workflows:
+            # OS operations can execute workflow file operations
+            pass  # Integration point for future enhancement
+
+        if causal_reasoner and os_operations:
+            # Causal reasoning can analyze system events from OS operations
+            pass  # Integration point for future enhancement
+
+        if abductive_reasoner and os_operations:
+            # Abductive reasoning can explain OS operation failures
             pass  # Integration point for future enhancement
 
         # Add jarvis data dir to safe paths for file operations

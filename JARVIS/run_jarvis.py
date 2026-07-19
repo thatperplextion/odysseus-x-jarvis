@@ -272,6 +272,65 @@ async def demo_integration(jarvis):
     print("\n✅ Full pipeline executed successfully!")
 
 
+async def demo_os_operations(jarvis):
+    """Demonstrate OS Operations"""
+    print("\n" + "="*60)
+    print("DEMO: OS Operations (NEW)")
+    print("="*60)
+    
+    os_ops = jarvis.subsystems.get('os_operations')
+    
+    if not os_ops:
+        print("OS Operations component not available")
+        return
+    
+    # Test file operations
+    print("\n1. File Operations:")
+    from pathlib import Path
+    test_file = Path.home() / "demo_jarvis_os_test.txt"
+    test_content = "Hello from Jarvis OS OS Operations!"
+    
+    # Write file
+    write_result = os_ops.write_file(str(test_file), test_content)
+    if write_result.success:
+        print(f"   ✓ File written: {test_file.name}")
+    
+    # Read file
+    read_result = os_ops.read_file(str(test_file))
+    if read_result.success:
+        print(f"   ✓ File read: {read_result.data['content']}")
+    
+    # Get file info
+    info_result = os_ops.get_file_info(str(test_file))
+    if info_result.success:
+        print(f"   ✓ File info: {info_result.data['size']} bytes")
+    
+    # Test directory operations
+    print("\n2. Directory Operations:")
+    list_result = os_ops.list_directory(str(Path.home()))
+    if list_result.success:
+        print(f"   ✓ Directory listed: {list_result.data['count']} items")
+    
+    # Test command execution
+    print("\n3. Command Execution:")
+    cmd_result = os_ops.execute_command("echo 'Jarvis OS command execution test'")
+    if cmd_result.success:
+        print(f"   ✓ Command executed: {cmd_result.data['stdout'].strip()}")
+    
+    # Test dangerous command blocking
+    print("\n4. Security:")
+    dangerous_result = os_ops.execute_command("rm -rf /")
+    if not dangerous_result.success:
+        print(f"   ✓ Dangerous command blocked: {dangerous_result.error}")
+    
+    # Cleanup
+    if test_file.exists():
+        test_file.unlink()
+        print(f"\n5. Cleanup: Test file deleted")
+    
+    print("\n✅ OS Operations demo complete!")
+
+
 async def main():
     """Main demo function"""
     print("\n" + "="*60)
@@ -300,6 +359,7 @@ async def main():
         await demo_agents(jarvis)
         await demo_reasoning(jarvis)
         await demo_integration(jarvis)
+        await demo_os_operations(jarvis)
         
         print("\n" + "="*60)
         print("DEMO COMPLETE")

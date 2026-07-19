@@ -29,6 +29,43 @@ class JarvisNotificationRequest(BaseModel):
     severity: str = "info"
 
 
+class OSReadFileRequest(BaseModel):
+    file_path: str = Field(..., min_length=1)
+    encoding: str = "utf-8"
+
+
+class OSWriteFileRequest(BaseModel):
+    file_path: str = Field(..., min_length=1)
+    content: str
+    encoding: str = "utf-8"
+    create_dirs: bool = True
+
+
+class OSListDirectoryRequest(BaseModel):
+    dir_path: str = Field(..., min_length=1)
+    recursive: bool = False
+
+
+class OSExecuteCommandRequest(BaseModel):
+    command: str = Field(..., min_length=1)
+    timeout: int = 30
+    working_dir: Optional[str] = None
+
+
+class OSSearchFilesRequest(BaseModel):
+    dir_path: str = Field(..., min_length=1)
+    pattern: str = Field(..., min_length=1)
+    recursive: bool = True
+
+
+class OSDeleteFileRequest(BaseModel):
+    file_path: str = Field(..., min_length=1)
+
+
+class OSCreateDirectoryRequest(BaseModel):
+    dir_path: str = Field(..., min_length=1)
+
+
 def setup_jarvis_routes() -> APIRouter:
     """Create Jarvis API router"""
     router = APIRouter(prefix="/api/jarvis", tags=["jarvis"])
@@ -150,5 +187,106 @@ def setup_jarvis_routes() -> APIRouter:
                 for p in patterns
             ]
         }
+
+    # OS Operations Endpoints
+    @router.post("/os/read_file")
+    async def os_read_file(body: OSReadFileRequest, request: Request):
+        """Read a file from the filesystem"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.read_file(body.file_path, body.encoding)
+        return result.to_dict()
+
+    @router.post("/os/write_file")
+    async def os_write_file(body: OSWriteFileRequest, request: Request):
+        """Write content to a file"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.write_file(body.file_path, body.content, body.encoding, body.create_dirs)
+        return result.to_dict()
+
+    @router.post("/os/list_directory")
+    async def os_list_directory(body: OSListDirectoryRequest, request: Request):
+        """List contents of a directory"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.list_directory(body.dir_path, body.recursive)
+        return result.to_dict()
+
+    @router.post("/os/execute_command")
+    async def os_execute_command(body: OSExecuteCommandRequest, request: Request):
+        """Execute a shell command"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.execute_command(body.command, body.timeout, body.working_dir)
+        return result.to_dict()
+
+    @router.post("/os/search_files")
+    async def os_search_files(body: OSSearchFilesRequest, request: Request):
+        """Search for files matching a pattern"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.search_files(body.dir_path, body.pattern, body.recursive)
+        return result.to_dict()
+
+    @router.post("/os/delete_file")
+    async def os_delete_file(body: OSDeleteFileRequest, request: Request):
+        """Delete a file"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.delete_file(body.file_path)
+        return result.to_dict()
+
+    @router.post("/os/create_directory")
+    async def os_create_directory(body: OSCreateDirectoryRequest, request: Request):
+        """Create a directory"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.create_directory(body.dir_path)
+        return result.to_dict()
+
+    @router.get("/os/file_info")
+    async def os_get_file_info(request: Request, file_path: str):
+        """Get detailed information about a file"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        result = os_ops.get_file_info(file_path)
+        return result.to_dict()
+
+    @router.get("/os/history")
+    async def os_get_history(request: Request, limit: int = 100):
+        """Get OS operation history"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        history = os_ops.get_operation_history(limit)
+        return {"history": [op.to_dict() for op in history]}
+
+    @router.post("/os/clear_history")
+    async def os_clear_history(request: Request):
+        """Clear OS operation history"""
+        jarvis = _get_jarvis(request)
+        os_ops = jarvis.subsystems.get("os_operations")
+        if not os_ops:
+            raise HTTPException(503, "OS operations unavailable")
+        os_ops.clear_history()
+        return {"success": True, "message": "History cleared"}
 
     return router
