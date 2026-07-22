@@ -5,19 +5,19 @@
 # These are additional dependencies specific to Jarvis OS
 
 # System monitoring
-psutil>=5.9.0
+psutil>=7.2.2
 
 # Cryptography for security
-cryptography>=41.0.0
+cryptography>=49.0.0
 
 # Cron scheduling for automation
-croniter>=1.4.0
+croniter>=6.2.4
 
 # Async utilities
-aiofiles>=23.0.0
+aiofiles>=25.1.0
 
 # Data processing
-pandas>=2.0.0
+pandas>=3.0.3
 
 # Machine learning (optional, for advanced features)
 # scikit-learn>=1.3.0
