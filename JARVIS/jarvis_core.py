@@ -79,6 +79,15 @@ class JarvisCore:
             await self._initialize_advanced_reasoning()
             await self._initialize_os_operations()
 
+            # Phase 1: AI Core
+            await self._initialize_autonomous_planner()
+            await self._initialize_long_running_coding()
+            await self._initialize_self_improvement()
+            await self._initialize_repository_understanding()
+            await self._initialize_live_debugging()
+            await self._initialize_project_management()
+            await self._initialize_autonomous_development()
+
             # Original subsystems
             await self._initialize_kernel()
             await self._initialize_consciousness()
@@ -313,6 +322,148 @@ class JarvisCore:
         self.subsystems['os_operations'] = os_ops
         logger.info("OS Operations Manager initialized")
 
+    async def _initialize_autonomous_planner(self):
+        """Initialize Autonomous Planner for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Autonomous Planner...")
+        from JARVIS.autonomous import AutonomousPlanner
+        autonomous_planner = AutonomousPlanner()
+        
+        # Integrate with verified capabilities
+        if 'os_operations' in self.subsystems:
+            autonomous_planner.set_os_operations(self.subsystems['os_operations'])
+        if 'memory' in self.subsystems:
+            autonomous_planner.set_memory(self.subsystems['memory'])
+        if 'agent_system' in self.subsystems:
+            autonomous_planner.set_agent_system(self.subsystems['agent_system'])
+        if 'reasoning' in self.subsystems:
+            autonomous_planner.set_reasoning(self.subsystems['reasoning'])
+        
+        await autonomous_planner.health_check()
+        self.subsystems['autonomous_planner'] = autonomous_planner
+        logger.info("Phase 1 Autonomous Planner initialized")
+
+    async def _initialize_long_running_coding(self):
+        """Initialize Long-Running Coding System for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Long-Running Coding System...")
+        from JARVIS.autonomous import LongRunningCodingSystem
+        coding_system = LongRunningCodingSystem(self.jarvis_data_dir)
+        
+        # Integrate with verified capabilities
+        if 'os_operations' in self.subsystems:
+            coding_system.set_os_operations(self.subsystems['os_operations'])
+        if 'memory' in self.subsystems:
+            coding_system.set_memory(self.subsystems['memory'])
+        if 'autonomous_planner' in self.subsystems:
+            coding_system.set_autonomous_planner(self.subsystems['autonomous_planner'])
+        
+        await coding_system.initialize()
+        await coding_system.health_check()
+        self.subsystems['long_running_coding'] = coding_system
+        logger.info("Phase 1 Long-Running Coding System initialized")
+
+    async def _initialize_self_improvement(self):
+        """Initialize Self-Improvement System for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Self-Improvement System...")
+        from JARVIS.autonomous import SelfImprovementSystem
+        self_improvement = SelfImprovementSystem(self.jarvis_data_dir)
+        
+        # Integrate with verified capabilities
+        if 'memory' in self.subsystems:
+            self_improvement.set_memory(self.subsystems['memory'])
+        if 'autonomous_planner' in self.subsystems:
+            self_improvement.set_autonomous_planner(self.subsystems['autonomous_planner'])
+        if 'long_running_coding' in self.subsystems:
+            self_improvement.set_long_running_coding(self.subsystems['long_running_coding'])
+        
+        await self_improvement.initialize()
+        await self_improvement.health_check()
+        self.subsystems['self_improvement'] = self_improvement
+        logger.info("Phase 1 Self-Improvement System initialized")
+
+    async def _initialize_repository_understanding(self):
+        """Initialize Repository Understanding System for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Repository Understanding System...")
+        from JARVIS.autonomous import RepositoryUnderstandingSystem
+        repo_understanding = RepositoryUnderstandingSystem(self.jarvis_data_dir)
+        
+        # Integrate with verified capabilities
+        if 'os_operations' in self.subsystems:
+            repo_understanding.set_os_operations(self.subsystems['os_operations'])
+        if 'memory' in self.subsystems:
+            repo_understanding.set_memory(self.subsystems['memory'])
+        if 'knowledge_graph' in self.subsystems:
+            repo_understanding.set_knowledge_graph(self.subsystems['knowledge_graph'])
+        
+        await repo_understanding.initialize()
+        await repo_understanding.health_check()
+        self.subsystems['repository_understanding'] = repo_understanding
+        logger.info("Phase 1 Repository Understanding System initialized")
+
+    async def _initialize_live_debugging(self):
+        """Initialize Live Debugging System for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Live Debugging System...")
+        from JARVIS.autonomous import LiveDebuggingSystem
+        live_debugging = LiveDebuggingSystem(self.jarvis_data_dir)
+        
+        # Integrate with verified capabilities
+        if 'os_operations' in self.subsystems:
+            live_debugging.set_os_operations(self.subsystems['os_operations'])
+        if 'memory' in self.subsystems:
+            live_debugging.set_memory(self.subsystems['memory'])
+        if 'long_running_coding' in self.subsystems:
+            live_debugging.set_long_running_coding(self.subsystems['long_running_coding'])
+        
+        await live_debugging.initialize()
+        await live_debugging.health_check()
+        self.subsystems['live_debugging'] = live_debugging
+        logger.info("Phase 1 Live Debugging System initialized")
+
+    async def _initialize_project_management(self):
+        """Initialize Project Management System for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Project Management System...")
+        from JARVIS.autonomous import ProjectManagementSystem
+        project_management = ProjectManagementSystem(self.jarvis_data_dir)
+        
+        # Integrate with verified capabilities
+        if 'memory' in self.subsystems:
+            project_management.set_memory(self.subsystems['memory'])
+        if 'autonomous_planner' in self.subsystems:
+            project_management.set_autonomous_planner(self.subsystems['autonomous_planner'])
+        if 'long_running_coding' in self.subsystems:
+            project_management.set_long_running_coding(self.subsystems['long_running_coding'])
+        
+        await project_management.initialize()
+        await project_management.health_check()
+        self.subsystems['project_management'] = project_management
+        logger.info("Phase 1 Project Management System initialized")
+
+    async def _initialize_autonomous_development(self):
+        """Initialize Autonomous Development Workflow for Phase 1 AI Core"""
+        logger.info("Initializing Phase 1 Autonomous Development Workflow...")
+        from JARVIS.autonomous import AutonomousDevelopmentWorkflow
+        autonomous_development = AutonomousDevelopmentWorkflow(self.jarvis_data_dir)
+        
+        # Integrate with all Phase 1 components
+        if 'autonomous_planner' in self.subsystems:
+            autonomous_development.set_autonomous_planner(self.subsystems['autonomous_planner'])
+        if 'long_running_coding' in self.subsystems:
+            autonomous_development.set_long_running_coding(self.subsystems['long_running_coding'])
+        if 'self_improvement' in self.subsystems:
+            autonomous_development.set_self_improvement(self.subsystems['self_improvement'])
+        if 'repository_understanding' in self.subsystems:
+            autonomous_development.set_repository_understanding(self.subsystems['repository_understanding'])
+        if 'live_debugging' in self.subsystems:
+            autonomous_development.set_live_debugging(self.subsystems['live_debugging'])
+        if 'project_management' in self.subsystems:
+            autonomous_development.set_project_management(self.subsystems['project_management'])
+        if 'memory' in self.subsystems:
+            autonomous_development.set_memory(self.subsystems['memory'])
+        
+        await autonomous_development.initialize()
+        await autonomous_development.health_check()
+        self.subsystems['autonomous_development'] = autonomous_development
+        logger.info("Phase 1 Autonomous Development Workflow initialized")
+
     async def _initialize_kernel(self):
         logger.info("Initializing Jarvis kernel...")
         from JARVIS.kernel.jarvis_kernel import JarvisKernel
@@ -421,6 +572,13 @@ class JarvisCore:
         analogical_reasoner = self.subsystems.get('analogical_reasoner')
         meta_reasoner = self.subsystems.get('meta_reasoner')
         os_operations = self.subsystems.get('os_operations')
+        autonomous_planner = self.subsystems.get('autonomous_planner')
+        long_running_coding = self.subsystems.get('long_running_coding')
+        self_improvement = self.subsystems.get('self_improvement')
+        repository_understanding = self.subsystems.get('repository_understanding')
+        live_debugging = self.subsystems.get('live_debugging')
+        project_management = self.subsystems.get('project_management')
+        autonomous_development = self.subsystems.get('autonomous_development')
 
         if kernel and interface:
             kernel.set_system_interface(interface)
@@ -539,6 +697,75 @@ class JarvisCore:
         if abductive_reasoner and os_operations:
             # Abductive reasoning can explain OS operation failures
             pass  # Integration point for future enhancement
+
+        if autonomous_planner and planning:
+            # Autonomous planner extends base planning capabilities
+            pass  # Integration point for future enhancement
+
+        if autonomous_planner and agent_system:
+            # Autonomous planner can distribute tasks to agents
+            pass  # Integration point for future enhancement
+
+        if autonomous_planner and memory:
+            # Autonomous planner stores execution history in memory
+            pass  # Integration point for future enhancement
+
+        if long_running_coding and os_operations:
+            # Long-running coding uses OS operations for file tasks
+            pass  # Integration point for future enhancement
+
+        if long_running_coding and autonomous_planner:
+            # Long-running coding uses autonomous planner for task decomposition
+            pass  # Integration point for future enhancement
+
+        if self_improvement and memory:
+            # Self-improvement stores metrics in memory
+            pass  # Integration point for future enhancement
+
+        if self_improvement and autonomous_planner:
+            # Self-improvement can trigger planning for improvements
+            pass  # Integration point for future enhancement
+
+        if repository_understanding and os_operations:
+            # Repository understanding uses OS operations for file analysis
+            pass  # Integration point for future enhancement
+
+        if repository_understanding and knowledge_graph:
+            # Repository understanding stores analysis in knowledge graph
+            pass  # Integration point for future enhancement
+
+        if live_debugging and os_operations:
+            # Live debugging uses OS operations for file access
+            pass  # Integration point for future enhancement
+
+        if live_debugging and long_running_coding:
+            # Live debugging can debug long-running coding tasks
+            pass  # Integration point for future enhancement
+
+        if project_management and autonomous_planner:
+            # Project management uses autonomous planner for task planning
+            pass  # Integration point for future enhancement
+
+        if project_management and long_running_coding:
+            # Project management tracks long-running coding tasks
+            pass  # Integration point for future enhancement
+
+        if autonomous_development:
+            # Autonomous development orchestrates all Phase 1 components
+            if autonomous_planner:
+                pass  # Already integrated in initialization
+            if long_running_coding:
+                pass  # Already integrated in initialization
+            if self_improvement:
+                pass  # Already integrated in initialization
+            if repository_understanding:
+                pass  # Already integrated in initialization
+            if live_debugging:
+                pass  # Already integrated in initialization
+            if project_management:
+                pass  # Already integrated in initialization
+            if memory:
+                pass  # Already integrated in initialization
 
         # Add jarvis data dir to safe paths for file operations
         if interface:
