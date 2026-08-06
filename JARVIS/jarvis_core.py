@@ -317,6 +317,8 @@ class JarvisCore:
         # Add default allowed paths (can be configured)
         os_ops.add_allowed_path(str(self.jarvis_data_dir), read_only=False)
         os_ops.add_allowed_path(str(Path.home()), read_only=False)
+        # Add project directory for full file access
+        os_ops.add_allowed_path(str(Path.cwd()), read_only=False)
         
         await os_ops.health_check()
         self.subsystems['os_operations'] = os_ops
@@ -826,7 +828,9 @@ class JarvisCore:
         for name, subsystem in self.subsystems.items():
             if hasattr(subsystem, 'health_check'):
                 health = await subsystem.health_check()
-                if health != 'healthy' and not health.startswith('healthy'):
+                # Handle both boolean and string health check returns
+                health_str = str(health) if isinstance(health, bool) else health
+                if health_str != 'healthy' and not health_str.startswith('healthy'):
                     logger.warning(f"Subsystem {name} health: {health}")
 
         if 'kernel' in self.subsystems:

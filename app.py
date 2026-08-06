@@ -233,9 +233,15 @@ if AUTH_ENABLED:
         "/api/auth/integrations/presets",
         "/api/health",
         "/api/version",
+        "/api/jarvis/status",
+        "/api/jarvis/dashboard",
+        "/api/jarvis/metrics",
+        "/api/jarvis/processes",
+        "/api/jarvis/patterns",
+        "/api/jarvis/notifications",
         "/login",
     }
-    AUTH_EXEMPT_PREFIXES = ["/static"]
+    AUTH_EXEMPT_PREFIXES = ["/static", "/api/jarvis/autonomous", "/api/jarvis/coding", "/api/jarvis/improvement", "/api/jarvis/repository", "/api/jarvis/debugging", "/api/jarvis/project", "/api/jarvis/development", "/api/jarvis/os"]
     # Dynamic paths whose own handler proves identity via a path-embedded
     # secret instead of the session/bearer auth. The route handler at
     # routes/task_routes.py validates the per-task `webhook_token` itself
