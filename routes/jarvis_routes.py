@@ -2,11 +2,14 @@
 Jarvis OS API Routes - REST endpoints for Jarvis integration with Odysseus
 """
 
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from routes._os_guard import os_admin_guard
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +186,9 @@ class ExecuteWorkflowRequest(BaseModel):
 
 def setup_jarvis_routes() -> APIRouter:
     """Create Jarvis API router"""
-    router = APIRouter(prefix="/api/jarvis", tags=["jarvis"])
+    # Everything here can read files, run commands or drive the agents, so the whole router is
+    # admin-only (see routes/_os_guard.py). It used to be reachable without authentication.
+    router = APIRouter(prefix="/api/jarvis", tags=["jarvis"], dependencies=[Depends(os_admin_guard)])
 
     def _get_jarvis(request: Request):
         jarvis = getattr(request.app.state, "jarvis", None)
@@ -311,7 +316,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.read_file(body.file_path, body.encoding)
+        result = await asyncio.to_thread(os_ops.read_file, body.file_path, body.encoding)
         return result.to_dict()
 
     @router.post("/os/write_file")
@@ -321,7 +326,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.write_file(body.file_path, body.content, body.encoding, body.create_dirs)
+        result = await asyncio.to_thread(os_ops.write_file, body.file_path, body.content, body.encoding, body.create_dirs)
         return result.to_dict()
 
     @router.post("/os/list_directory")
@@ -331,7 +336,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.list_directory(body.dir_path, body.recursive)
+        result = await asyncio.to_thread(os_ops.list_directory, body.dir_path, body.recursive)
         return result.to_dict()
 
     @router.post("/os/execute_command")
@@ -341,7 +346,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.execute_command(body.command, body.timeout, body.working_dir)
+        result = await asyncio.to_thread(os_ops.execute_command, body.command, body.timeout, body.working_dir)
         return result.to_dict()
 
     @router.post("/os/search_files")
@@ -351,7 +356,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.search_files(body.dir_path, body.pattern, body.recursive)
+        result = await asyncio.to_thread(os_ops.search_files, body.dir_path, body.pattern, body.recursive)
         return result.to_dict()
 
     @router.post("/os/delete_file")
@@ -361,7 +366,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.delete_file(body.file_path)
+        result = await asyncio.to_thread(os_ops.delete_file, body.file_path)
         return result.to_dict()
 
     @router.post("/os/create_directory")
@@ -371,7 +376,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.create_directory(body.dir_path)
+        result = await asyncio.to_thread(os_ops.create_directory, body.dir_path)
         return result.to_dict()
 
     @router.get("/os/file_info")
@@ -381,7 +386,7 @@ def setup_jarvis_routes() -> APIRouter:
         os_ops = jarvis.subsystems.get("os_operations")
         if not os_ops:
             raise HTTPException(503, "OS operations unavailable")
-        result = os_ops.get_file_info(file_path)
+        result = await asyncio.to_thread(os_ops.get_file_info, file_path)
         return result.to_dict()
 
     @router.get("/os/history")

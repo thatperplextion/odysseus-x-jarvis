@@ -12,6 +12,14 @@ import asyncio
 # used, regardless of how the process is launched.
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    # A connection that is reset before it is accepted (closed tab, aborted fetch, port probe) makes the stock
+    # Proactor loop close the LISTENING socket - the server stays "up" but refuses everything ("Failed to
+    # fetch"). Keep accepting instead. See src/asyncio_noise.py.
+    try:
+        from src.asyncio_noise import patch_proactor_accept
+        patch_proactor_accept()
+    except Exception:
+        pass
 
 
 def register_static_mime_types() -> None:
@@ -233,15 +241,9 @@ if AUTH_ENABLED:
         "/api/auth/integrations/presets",
         "/api/health",
         "/api/version",
-        "/api/jarvis/status",
-        "/api/jarvis/dashboard",
-        "/api/jarvis/metrics",
-        "/api/jarvis/processes",
-        "/api/jarvis/patterns",
-        "/api/jarvis/notifications",
         "/login",
     }
-    AUTH_EXEMPT_PREFIXES = ["/static", "/api/jarvis/autonomous", "/api/jarvis/coding", "/api/jarvis/improvement", "/api/jarvis/repository", "/api/jarvis/debugging", "/api/jarvis/project", "/api/jarvis/development", "/api/jarvis/os"]
+    AUTH_EXEMPT_PREFIXES = ["/static"]
     # Dynamic paths whose own handler proves identity via a path-embedded
     # secret instead of the session/bearer auth. The route handler at
     # routes/task_routes.py validates the per-task `webhook_token` itself
@@ -733,6 +735,12 @@ app.include_router(setup_assistant_routes(task_scheduler))
 from routes.jarvis_routes import setup_jarvis_routes
 app.include_router(setup_jarvis_routes())
 
+# Odysseus OS - desktop shell API (files, processes, terminal, assistant) behind /os
+from routes.os_routes import setup_os_routes
+app.include_router(setup_os_routes())
+from routes.os_models_routes import setup_os_models_routes; app.include_router(setup_os_models_routes())  # AI models pane: benchmark + default model
+from routes.os_today_routes import setup_os_today_routes; app.include_router(setup_os_today_routes())  # desktop "Today": agenda/todos/automations/capture/focus
+
 # Calendar (CalDAV)
 from routes.calendar_routes import setup_calendar_routes
 calendar_router = setup_calendar_routes()
@@ -843,6 +851,11 @@ async def serve_index(request: Request):
     # bundled-template routes instead of mislabelling the fault as a 404.
     return serve_html_with_nonce(request, abs_join(BASE_DIR, "index.html"))
 
+@app.get("/os")
+async def serve_os(request: Request):
+    """The Odysseus OS desktop shell (static/os/). Requires login like every other page."""
+    return serve_html_with_nonce(request, abs_join(BASE_DIR, "static/os/index.html"))
+
 @app.get("/notes")
 async def serve_notes(request: Request):
     return await serve_index(request)
@@ -947,7 +960,18 @@ app.router.lifespan_context = _lifespan
 async def _startup_event():
     global upload_cleanup_task
     logger.info("Application starting up...")
+    try:
+        from src.asyncio_noise import install as _install_asyncio_noise_filter
+        _install_asyncio_noise_filter(asyncio.get_running_loop())
+    except Exception as _e:
+        logger.debug("asyncio noise filter not installed: %s", _e)
     webhook_manager.set_loop(asyncio.get_running_loop())
+    try:
+        # lets the reminder scanner reach the OS notification centre (app.state.jarvis) with no browser open
+        from services.os_shell import reminders as _os_reminders
+        _os_reminders.bind(app)
+    except Exception as _e:
+        logger.debug("OS reminder bridge not bound: %s", _e)
     # Wipe any leftover incognito sessions from previous process — they're
     # ephemeral by design and must not survive a restart.
     try:
@@ -987,20 +1011,43 @@ async def _startup_event():
         except BaseException as e:
             logger.warning(f"Built-in MCP registration failed (non-critical): {type(e).__name__}: {e}")
         try:
-            await asyncio.wait_for(mcp_manager.connect_all_enabled(), timeout=20)
+            # Each server has its own handshake timeout inside the manager (and stdio servers are only
+            # registered, not started, unless ODYSSEUS_MCP_LAZY=0); this outer bound is a last resort.
+            await asyncio.wait_for(mcp_manager.connect_all_enabled(), timeout=180)
         except asyncio.TimeoutError:
             logger.warning("User MCP startup timed out (non-critical)")
         except BaseException as e:
             logger.warning(f"MCP startup failed (non-critical): {type(e).__name__}: {e}")
 
     _startup_tasks.append(asyncio.create_task(_startup_mcp_connections()))
+    # Stop lazily-started MCP servers again after a while without use (frees ~70 MB each).
+    _idle_reaper = mcp_manager.start_idle_reaper()
+    if _idle_reaper is not None:
+        _startup_tasks.append(_idle_reaper)
 
     # Pre-warm the RAG tool index off the request path. Loading the local
     # embedding model + opening ChromaDB + indexing the built-in tools is a
     # one-time ~1-3s cost that otherwise lands on the user's FIRST message
     # (showing up as a big `tool_selection` time). Doing it here makes the
     # first turn as fast as subsequent ones (warm embed ≈ a few ms).
+    def _should_warm_tool_index() -> bool:
+        # Loading the embedding model costs a few hundred MB. On a machine that is already short of
+        # memory, leave it for the first message that needs it. ODYSSEUS_WARM_TOOL_INDEX=1/0 forces it.
+        flag = os.getenv("ODYSSEUS_WARM_TOOL_INDEX", "auto").strip().lower()
+        if flag in ("1", "true", "yes", "on"):
+            return True
+        if flag in ("0", "false", "no", "off"):
+            return False
+        try:
+            import psutil
+            return psutil.virtual_memory().available >= 3 * 1024 ** 3
+        except Exception:
+            return True
+
     async def _warmup_tool_index():
+        if not _should_warm_tool_index():
+            logger.info("[startup] Tool index warm-up skipped (low free memory); it loads on first use")
+            return
         try:
             from src.tool_index import get_tool_index
             idx = await asyncio.to_thread(get_tool_index)
@@ -1203,10 +1250,12 @@ async def _startup_event():
                 }
                 jarvis = await start_jarvis(odysseus_components)
                 app.state.jarvis = jarvis
+                app.state.jarvis_error = None
                 logger.info("Jarvis OS started and integrated with Odysseus")
             except Exception as e:
                 logger.warning(f"Jarvis OS startup failed (non-critical): {e}")
                 app.state.jarvis = None
+                app.state.jarvis_error = str(e)  # shown on the /os boot screen
 
         await _startup_jarvis()
 

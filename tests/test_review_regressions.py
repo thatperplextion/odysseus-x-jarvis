@@ -71,6 +71,11 @@ def _default_chat_endpoint():
 
 
 def _install_model_route_import_stubs(monkeypatch):
+    # routes.model_routes (and chat_routes) import core.log_safety at module level. It is a dependency-free helper, so the
+    # stubbed `core` package gets the real module rather than a copy of its surface; without it the route import fails
+    # with "No module named 'core.log_safety'" whenever nothing else had imported it first.
+    import core.log_safety as log_safety_mod
+
     core_mod = types.ModuleType("core")
     core_mod.__path__ = []
     db_mod = types.ModuleType("core.database")
@@ -101,6 +106,7 @@ def _install_model_route_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "core.models", models_mod)
     monkeypatch.setitem(sys.modules, "core.exceptions", exceptions_mod)
     monkeypatch.setitem(sys.modules, "core.session_manager", session_mgr_mod)
+    monkeypatch.setitem(sys.modules, "core.log_safety", log_safety_mod)
 
 
 def _install_core_auth_stub(monkeypatch):

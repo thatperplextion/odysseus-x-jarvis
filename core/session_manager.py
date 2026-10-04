@@ -11,11 +11,14 @@ This is the single place that handles:
 import json
 import uuid
 import logging
+import threading
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
 from .database import Session as DbSession, ChatMessage as DbChatMessage, Document as DbDocument, SessionLocal, utcnow_naive
 from .models import Session, ChatMessage
+
+_ENSURE_SESSION_LOCK = threading.Lock()
 
 # Re-export singleton accessors from models for convenience
 from .models import set_session_manager_instance, get_session_manager_instance
@@ -632,20 +635,41 @@ class SessionManager:
     def save_sessions(self):
         """No-op for DB compatibility."""
 
+    def _session_row_exists(self, session_id: str) -> bool:
+        db = SessionLocal()
+        try:
+            return db.query(DbSession.id).filter(DbSession.id == session_id).first() is not None
+        finally:
+            db.close()
+
     def ensure_task_session(self, session_id: str, name: str, endpoint_url: str, model: str, owner: str = None, task: object = None) -> Session:
-        """Create a task session if it doesn't exist, or return the existing one.
+        """Return the task's chat session, creating it only if it exists nowhere.
 
-        Unlike create_session, this checks the cache first and does NOT
-        overwrite an existing in-memory session. The task scheduler must
-        use this instead of direct dict assignment.
+        Unlike create_session, this does NOT overwrite an existing in-memory
+        session, and it looks at the database as well as the cache: the cache
+        only holds recent non-empty sessions (see load_sessions), and the
+        scheduler inserts the row itself before calling this - so a cache miss
+        does not mean the row is missing, and blindly inserting again failed
+        with "UNIQUE constraint failed: sessions.id" (and was logged as an
+        error on every new task session). The scheduler must use this instead
+        of direct dict assignment.
         """
-        if session_id in self.sessions:
-            return self.sessions[session_id]
-
-        session = self.create_session(session_id, name, endpoint_url, model, owner=owner)
+        cached = self.sessions.get(session_id)
+        if cached is None:
+            with _ENSURE_SESSION_LOCK:          # two task runs can race on the same id (worker threads)
+                cached = self.sessions.get(session_id)
+                if cached is None:
+                    if self._session_row_exists(session_id):
+                        try:
+                            self._load_session_from_db(session_id)
+                        except KeyError:
+                            pass
+                        cached = self.sessions.get(session_id)
+                    if cached is None:
+                        cached = self.create_session(session_id, name, endpoint_url, model, owner=owner)
         if task is not None:
             task.session_id = session_id
-        return session
+        return cached
 
     # ------------------------------------------------------------------
     # Cleanup

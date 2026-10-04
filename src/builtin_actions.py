@@ -1658,9 +1658,14 @@ async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
                 STATE.write_text(_legacy.read_text(encoding="utf-8"), encoding="utf-8")
             except Exception:
                 pass
-        # Scanner ticks every 60s in _note_pings_loop. 90s window guarantees
-        # every note's due time lands inside at least one tick's window.
-        WINDOW_SEC = 90
+        # Scanner ticks every 60s in _note_pings_loop (+ the time a tick takes).
+        # A note fires from LEAD_SEC before its due time until AFTER_SEC after
+        # it: a 150s window, wider than any tick period, so every due time
+        # lands inside at least one tick - and a reminder is never announced
+        # more than half a minute early ("at 6pm" means 6pm, not 5:58).
+        LEAD_SEC = 30
+        AFTER_SEC = 120
+        WINDOW_SEC = AFTER_SEC
         REPING_MIN = 25     # don't re-ping same note more often than this
 
         def _parse_due(s: str):
@@ -1706,8 +1711,9 @@ async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
                 due = _parse_due(n.due_date)
                 if not due:
                     continue
-                # Inside the ±5min window?
-                if abs((due - now).total_seconds()) > window.total_seconds():
+                # Inside the firing window around the due time?
+                late = (now - due).total_seconds()
+                if late < -LEAD_SEC or late > AFTER_SEC:
                     continue
                 # Recently pinged? Skip.
                 last = cache.get(n.id)
@@ -1743,11 +1749,19 @@ async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
                 body = "\n\n".join(p for p in body_parts if p) or title
                 try:
                     from routes.note_routes import dispatch_reminder
-                    await dispatch_reminder(
+                    res = await dispatch_reminder(
                         title=title, note_body=body, note_id=n.id,
-                        owner=n.owner or owner or "",
+                        owner=n.owner or owner or "", due=n.due_date,
                     )
-                    cache[n.id] = now.isoformat()
+                    if isinstance(res, dict) and res.get("os_deferred"):
+                        continue        # an open Odysseus OS tab announces it; re-checked on the next tick
+                    # dispatch_reminder already recorded {"at", "channel"} for this note; keep that richer
+                    # entry rather than overwriting it with a bare timestamp (the email retry logic reads "channel").
+                    try:
+                        _fresh = _json.loads(STATE.read_text(encoding="utf-8")).get(n.id)
+                    except Exception:
+                        _fresh = None
+                    cache[n.id] = _fresh if isinstance(_fresh, dict) else now.isoformat()
                     sent.append(title)
                 except Exception as e:
                     logger.warning(f"ping_notes: dispatch failed for {n.id}: {e}")
@@ -1762,7 +1776,7 @@ async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
                 logger.warning(f"ping_notes: cache write failed: {e}")
 
             if not sent:
-                raise TaskNoop(f"scanned {len(notes)} note(s), none due in ±{WINDOW_SEC}s")
+                raise TaskNoop(f"scanned {len(notes)} note(s), none due within -{LEAD_SEC}s/+{AFTER_SEC}s")
             preview = "; ".join(sent[:3])
             extra = f" (+{len(sent) - 3} more)" if len(sent) > 3 else ""
             return f"Pinged {len(sent)} note(s): {preview}{extra}", True

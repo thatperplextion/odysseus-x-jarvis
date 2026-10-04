@@ -6365,7 +6365,8 @@ async function _maybeAutoTranslateEmail(reader) {
           signal: ctrl.signal,
         }).catch(() => null);
         clearTimeout(timer);
-        if (statusRes && statusRes.ok) return;
+        // 200 {status:'idle'} means no stream; only a live stream should skip the auto-translate
+        if (statusRes && statusRes.ok && (await statusRes.json().catch(() => ({}))).status === 'streaming') return;
       }
     } catch (_) {}
     await _translateEmail(reader, cfg.email_translate_language || 'English', { auto: true });

@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 from core.platform_compat import IS_WINDOWS, which_tool
 from src.runtime_paths import get_app_root
@@ -105,7 +106,13 @@ def _spawn_bg(coro) -> asyncio.Task:
 
 
 async def register_builtin_servers(mcp_manager):
-    """Connect all built-in MCP servers to the manager."""
+    """Register the built-in MCP servers with the manager.
+
+    In lazy mode (default, ODYSSEUS_MCP_LAZY=0 turns it off) nothing is kept running: each server
+    is advertised from its cached tool list and its process starts on the first tool call (see
+    McpManager.register_stdio). Only the very first boot after a server's script changed has to
+    start it once, one at a time, to learn its tools.
+    """
     if MCP_DISABLED:
         logger.info("Built-in MCP servers disabled via ODYSSEUS_DISABLE_MCP")
         return
@@ -113,12 +120,11 @@ async def register_builtin_servers(mcp_manager):
     base_dir = get_app_root()
     python = sys.executable
 
-    async def _connect_python_server(server_id: str, script_path: str, name: str):
+    async def _register_python_server(server_id: str, script_path: str, name: str):
         try:
-            ok = await mcp_manager.connect_server(
+            ok = await mcp_manager.register_stdio(
                 server_id=server_id,
                 name=name,
-                transport="stdio",
                 command=python,
                 args=[script_path],
                 env={"PYTHONPATH": base_dir},
@@ -133,12 +139,22 @@ async def register_builtin_servers(mcp_manager):
         except BaseException as e:
             logger.warning(f"Built-in MCP server {name} error: {type(e).__name__}: {e}")
 
+    python_servers = []
     for server_id, (script, name) in _BUILTIN_SERVERS.items():
         script_path = os.path.join(base_dir, script)
         if not os.path.exists(script_path):
             logger.warning(f"Built-in MCP server script not found: {script_path}")
             continue
-        _spawn_bg(_connect_python_server(server_id, script_path, name))
+        python_servers.append((server_id, script_path, name))
+
+    async def _register_python_servers():
+        # One after the other: a first-run "learn the tools" start is a transient ~70 MB process,
+        # and four at once is exactly the memory spike this avoids.
+        for server_id, script_path, name in python_servers:
+            await _register_python_server(server_id, script_path, name)
+
+    if python_servers:
+        _spawn_bg(_register_python_servers())
 
     # Register NPX-based servers in the background (they take longer to start)
     npx_path = _find_npx()
@@ -160,24 +176,19 @@ async def register_builtin_servers(mcp_manager):
             # us bail with a useful warning before we ever touch stdio_client.
             args = cfg["args"]
             pkg_spec = _npx_package_from_args(args)
-            if pkg_spec and not await _is_npx_package_cached(npx_path, pkg_spec):
-                logger.warning(
-                    f"{cfg['name']} is not available.\n"
-                    f"  Reason: npm package {pkg_spec!r} is not installed in the npx cache.\n"
-                    f"  Impact: tools provided by this MCP server will be unavailable.\n"
-                    f"  Fix:    {os.path.basename(npx_path)} -y {pkg_spec} --version\n"
-                    f"          (run once, then restart Odysseus)\n"
-                    f"  Notes:  this server is optional; see README.md "
-                    f"'Built-in MCP servers' for details."
+            if pkg_spec and not await _npx_package_available(npx_path, pkg_spec):
+                logger.info(
+                    f"{cfg['name']} is optional and not installed (npm package {pkg_spec!r} is not in the npx "
+                    f"cache), so its browser tools are unavailable. To enable it, run once: "
+                    f"{os.path.basename(npx_path)} -y {pkg_spec} --version  and restart Odysseus."
                 )
                 continue
 
-            logger.info(f"Starting NPX server: {cfg['name']} ({npx_path} {' '.join(args)})")
+            logger.info(f"Registering NPX server: {cfg['name']} ({npx_path} {' '.join(args)})")
             try:
-                ok = await mcp_manager.connect_server(
+                ok = await mcp_manager.register_stdio(
                     server_id=server_id,
                     name=cfg["name"],
-                    transport="stdio",
                     command=npx_path,
                     args=args,
                 )
@@ -191,6 +202,33 @@ async def register_builtin_servers(mcp_manager):
                 logger.warning(f"Built-in NPX server {cfg['name']} error: {type(e).__name__}: {e}")
 
     _spawn_bg(_start_npx_servers())
+
+
+_NPX_PROBE_TTL_SECONDS = 24 * 3600
+
+
+async def _npx_package_available(npx_path, package_spec) -> bool:
+    """Is the npx package already installed? Looks in npm's cache on disk first (free). The
+    `npx --no-install` fallback probe (a whole node process, a few seconds) is only needed for
+    unusual npm cache layouts, so a negative answer is remembered for a day instead of re-running
+    it on every boot."""
+    if _is_package_in_npx_cache(package_spec):
+        return True
+    from src.mcp_manager import _read_tools_cache, _write_tools_cache, _tools_cache_lock
+    key = f"_npx_probe:{package_spec}"
+    with _tools_cache_lock:
+        memo = _read_tools_cache().get(key)
+    if isinstance(memo, dict) and memo.get("ok") is False and time.time() - float(memo.get("ts", 0)) < _NPX_PROBE_TTL_SECONDS:
+        return False
+    ok = await _is_npx_package_cached(npx_path, package_spec)
+    with _tools_cache_lock:
+        data = _read_tools_cache()
+        if ok:
+            data.pop(key, None)
+        else:
+            data[key] = {"ok": False, "ts": time.time()}
+        _write_tools_cache(data)
+    return ok
 
 
 def _npx_package_from_args(args):

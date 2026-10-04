@@ -3092,6 +3092,9 @@ def setup_email_routes():
             payload = {"folders": result, "sync": {"source": "imap", "updated_at": datetime.utcnow().isoformat() + "Z"}}
             _folder_cache_put(account_id, owner, payload)
             return payload
+        except EmailNotConfiguredError:
+            # No mailbox yet: an empty folder list, not an error (the UI shows its "connect" state).
+            return {"folders": [], "sync": {"source": "not_configured"}}
         except Exception as e:
             logger.error(f"list_folders failed: {e}")
             return {"folders": [], "error": "Mail operation failed"}

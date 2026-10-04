@@ -127,19 +127,21 @@ class JarvisUI:
         """Update widget data from subsystems"""
         widget_type = widget.widget_type
         
+        # These read the OS (psutil), which can take a while; keep them off the event loop. The
+        # process-list refresh alone froze the whole server for ~2 s every 10 s.
         if widget_type == DashboardWidget.SYSTEM_METRICS:
             if 'interface' in self.subsystems:
-                widget.data = self.subsystems['interface'].get_system_metrics()
-        
+                widget.data = await asyncio.to_thread(self.subsystems['interface'].get_system_metrics)
+
         elif widget_type == DashboardWidget.PROCESS_LIST:
             if 'interface' in self.subsystems:
                 widget.data = {
-                    'processes': self.subsystems['interface'].list_processes()
+                    'processes': await asyncio.to_thread(self.subsystems['interface'].list_processes)
                 }
-        
+
         elif widget_type == DashboardWidget.NETWORK_STATS:
             if 'interface' in self.subsystems:
-                widget.data = self.subsystems['interface'].get_network_stats()
+                widget.data = await asyncio.to_thread(self.subsystems['interface'].get_network_stats)
         
         elif widget_type == DashboardWidget.AUTOMATION_STATUS:
             if 'automation' in self.subsystems:

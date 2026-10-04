@@ -56,15 +56,32 @@ class FileSystemManager:
             Path(os.path.expandvars('%TEMP%')) if os.name == 'nt' else Path('/tmp'),
             Path(os.path.expandvars('%APPDATA%')) if os.name == 'nt' else Path('/var/tmp')
         ]
+        # When the shared sandbox is attached (JarvisCore does this), it replaces the
+        # home-wide safe_directories policy above: only mounted folders are reachable.
+        self.sandbox = None
+        self.shared_fs = None
+
+    def attach_sandbox(self, sandbox, shared_fs=None):
+        self.sandbox = sandbox
+        self.shared_fs = shared_fs
+
+    def _resolve(self, path: str, write: bool = False, follow_final: bool = True) -> Optional[Path]:
+        """Real path if allowed, else None. Uses the shared sandbox when attached."""
+        if self.sandbox is None:
+            real = Path(path).resolve()
+            return real if self._is_path_allowed(real) else None
+        from services.os_shell.sandbox import SandboxError
+        try:
+            return self.sandbox.resolve(path, write=write, follow_final=follow_final).path
+        except SandboxError as e:
+            logger.warning(f"Access denied to path {path!r}: {e}")
+            return None
     
     async def read_file(self, path: str, max_size: int = 1024 * 1024) -> Optional[str]:
         """Read a file safely"""
         try:
-            file_path = Path(path).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(file_path):
-                logger.warning(f"Access denied to path: {file_path}")
+            file_path = self._resolve(path)
+            if file_path is None:
                 return None
             
             # Size check
@@ -83,11 +100,8 @@ class FileSystemManager:
                         create_dirs: bool = True) -> bool:
         """Write a file safely"""
         try:
-            file_path = Path(path).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(file_path):
-                logger.warning(f"Access denied to path: {file_path}")
+            file_path = self._resolve(path, write=True)
+            if file_path is None:
                 return False
             
             # Create directories if needed
@@ -107,11 +121,8 @@ class FileSystemManager:
     async def list_directory(self, path: str, recursive: bool = False) -> List[Dict[str, Any]]:
         """List directory contents"""
         try:
-            dir_path = Path(path).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(dir_path):
-                logger.warning(f"Access denied to path: {dir_path}")
+            dir_path = self._resolve(path)
+            if dir_path is None:
                 return []
             
             if not dir_path.is_dir():
@@ -156,13 +167,15 @@ class FileSystemManager:
     async def delete_file(self, path: str) -> bool:
         """Delete a file or directory"""
         try:
-            file_path = Path(path).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(file_path):
-                logger.warning(f"Access denied to path: {file_path}")
+            file_path = self._resolve(path, write=True, follow_final=False)
+            if file_path is None:
                 return False
-            
+
+            if self.shared_fs is not None:
+                self.shared_fs.delete(path)  # recoverable: moves to Trash
+                logger.info(f"Moved to Trash: {file_path}")
+                return True
+
             if file_path.is_dir():
                 shutil.rmtree(file_path)
             else:
@@ -178,11 +191,9 @@ class FileSystemManager:
     async def move_file(self, source: str, destination: str) -> bool:
         """Move a file or directory"""
         try:
-            src_path = Path(source).resolve()
-            dst_path = Path(destination).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(src_path) or not self._is_path_allowed(dst_path):
+            src_path = self._resolve(source, write=True, follow_final=False)
+            dst_path = self._resolve(destination, write=True)
+            if src_path is None or dst_path is None:
                 logger.warning("Access denied to move operation")
                 return False
             
@@ -197,16 +208,14 @@ class FileSystemManager:
     async def copy_file(self, source: str, destination: str) -> bool:
         """Copy a file or directory"""
         try:
-            src_path = Path(source).resolve()
-            dst_path = Path(destination).resolve()
-            
-            # Security check
-            if not self._is_path_allowed(src_path) or not self._is_path_allowed(dst_path):
+            src_path = self._resolve(source)
+            dst_path = self._resolve(destination, write=True)
+            if src_path is None or dst_path is None:
                 logger.warning("Access denied to copy operation")
                 return False
             
             if src_path.is_dir():
-                shutil.copytree(src_path, dst_path)
+                shutil.copytree(src_path, dst_path, symlinks=True)
             else:
                 shutil.copy2(src_path, dst_path)
             
@@ -243,23 +252,25 @@ class ProcessManager:
         self.monitored_processes: Dict[int, Dict[str, Any]] = {}
     
     def list_processes(self) -> List[Dict[str, Any]]:
-        """List all running processes"""
+        """List all running processes.
+
+        Uses the shared snapshot (services.os_shell.procs): psutil's per-process path took 2-15 s
+        for ~440 processes on Windows (blocking whoever called it) and reported the idle process
+        at 1300% CPU because per-core values were not normalised.
+        """
         try:
-            processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
-                try:
-                    processes.append({
-                        'pid': proc.info['pid'],
-                        'name': proc.info['name'],
-                        'user': proc.info.get('username', 'unknown'),
-                        'cpu_percent': proc.info.get('cpu_percent', 0),
-                        'memory_percent': proc.info.get('memory_percent', 0)
-                    })
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-            
-            return processes
-            
+            from services.os_shell.procs import list_processes as snapshot
+            return [
+                {
+                    'pid': p['pid'],
+                    'name': p['name'],
+                    'user': p['user'] or 'unknown',
+                    'cpu_percent': p['cpu'],
+                    'memory_percent': p['memory_percent'],
+                }
+                for p in snapshot()
+            ]
+
         except Exception as e:
             logger.error(f"Error listing processes: {e}", exc_info=True)
             return []
@@ -290,21 +301,18 @@ class ProcessManager:
             logger.warning(f"Process termination not allowed at permission level: {self.permission_level}")
             return False
         
+        # Same guard as the Task Manager: never the Odysseus server (or the shell that launched it),
+        # and never core system processes.
+        from services.os_shell import procs
         try:
-            proc = psutil.Process(pid)
-            proc.terminate()
-            
-            # Wait for process to terminate
-            try:
-                proc.wait(timeout=5)
-            except psutil.TimeoutExpired:
-                proc.kill()
-            
+            result = await asyncio.to_thread(procs.terminate, pid, False)
+            if result.get('result') == 'signalled':
+                await asyncio.to_thread(procs.terminate, pid, True)  # it ignored the polite request
             logger.info(f"Terminated process {pid}")
             return True
-            
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            logger.error(f"Error terminating process {pid}: {e}")
+
+        except procs.ProcessError as e:
+            logger.warning(f"Refused to terminate process {pid}: {e}")
             return False
     
     async def start_process(self, command: str, cwd: str = None) -> Optional[int]:
@@ -314,12 +322,15 @@ class ProcessManager:
             return None
         
         try:
+            # DEVNULL, not PIPE: nobody reads these pipes, so a chatty child would block forever
+            # once the 64 KB pipe buffer filled.
             process = subprocess.Popen(
                 command,
                 shell=True,
                 cwd=cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
             )
             
             logger.info(f"Started process {process.pid}: {command}")
@@ -387,9 +398,12 @@ class NetworkManager:
             return False
 
 
+psutil.cpu_percent(interval=None)  # prime: the first reading after import is meaningless (always 0)
+
+
 class SystemMonitor:
     """Real-time system monitoring"""
-    
+
     def __init__(self):
         self.metrics_history: List[Dict[str, Any]] = []
         self.max_history = 1000
@@ -399,7 +413,7 @@ class SystemMonitor:
         """Get current system metrics"""
         try:
             # CPU
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            cpu_percent = psutil.cpu_percent(interval=None)  # since the previous call; never sleeps the event loop
             cpu_count = psutil.cpu_count()
             cpu_freq = psutil.cpu_freq()
             

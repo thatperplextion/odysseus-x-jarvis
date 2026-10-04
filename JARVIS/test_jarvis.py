@@ -10,7 +10,19 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
+
 from JARVIS import get_jarvis
+
+
+@pytest.fixture(autouse=True)
+async def _jarvis_initialized():
+    """get_jarvis() returns an uninitialized singleton; boot it once so the
+    per-subsystem tests below have something to talk to."""
+    jarvis = get_jarvis()
+    if jarvis.state != "running":
+        await jarvis.initialize()
+    yield jarvis
 
 
 async def test_kernel():
@@ -19,8 +31,19 @@ async def test_kernel():
     jarvis = get_jarvis()
     
     # Test command execution
-    process_id = await jarvis.subsystems['kernel'].execute_command("test command")
+    kernel = jarvis.subsystems['kernel']
+    process_id = await kernel.execute_command("echo jarvis-kernel-test")
     print(f"✓ Command execution: {process_id}")
+
+    # Wait for the command to really finish (it is a real subprocess now). Returning with it
+    # still starting up would let the test's event loop close mid-spawn, which hangs asyncio on Windows.
+    for _ in range(100):
+        info = kernel.process_manager.get_process_status(process_id)
+        if info and info['state'] in ('completed', 'failed', 'terminated', 'cancelled'):
+            break
+        await asyncio.sleep(0.1)
+    assert info['state'] == 'completed', info
+    assert 'jarvis-kernel-test' in str(info['result'])
     
     # Get kernel status
     status = jarvis.subsystems['kernel'].get_status()

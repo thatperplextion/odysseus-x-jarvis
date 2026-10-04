@@ -1474,7 +1474,20 @@ def setup_chat_routes(
     # ------------------------------------------------------------------ #
     @router.get("/api/chat/stream_status/{session_id}")
     async def chat_stream_status(request: Request, session_id: str) -> Dict[str, Any]:
-        _verify_session_owner(request, session_id)
+        try:
+            _verify_session_owner(request, session_id)
+        except HTTPException as e:
+            if e.status_code == 404:
+                _db = SessionLocal()
+                try:
+                    _exists = _db.query(DBSession.id).filter(DBSession.id == session_id).first() is not None
+                finally:
+                    _db.close()
+                if not _exists:
+                    # A chat that has no row yet (a brand-new chat the page is already asking about): there
+                    # cannot be a stream. Say "idle" rather than a 404 the browser logs as an error.
+                    return {"status": "idle"}
+            raise
         # A detached run can still be going even if _active_streams was popped;
         # report it as active so the client knows to reconnect via /resume.
         # Read once via .get() to avoid a KeyError race between the membership
@@ -1484,7 +1497,7 @@ def setup_chat_routes(
         if rec is None:
             if agent_runs.is_active(session_id):
                 return {"status": "streaming", "detached": True}
-            raise HTTPException(404, "No active stream for this session")
+            return {"status": "idle"}      # no active stream is the normal state, not an error
         return rec
 
     # ------------------------------------------------------------------ #

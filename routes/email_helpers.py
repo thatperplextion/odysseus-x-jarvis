@@ -50,6 +50,34 @@ class EmailNotConfiguredError(RuntimeError):
     """
 
 
+class _NotConfiguredNoise(logging.Filter):
+    """Having no mailbox is a normal state (the email page and its pollers still ask), not a failure.
+    Many handlers log `except Exception` at ERROR; demote the "...is not configured for account..."
+    ones so a missing account does not look like a broken mail server in the log."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING and "is not configured for account" in record.getMessage():
+            record.levelno = logging.DEBUG
+            record.levelname = "DEBUG"
+            record.exc_info = None
+            record.exc_text = None
+        return True
+
+
+logging.getLogger("routes.email_routes").addFilter(_NotConfiguredNoise())
+logging.getLogger("routes.email_helpers").addFilter(_NotConfiguredNoise())
+
+_not_configured_logged: set = set()
+
+
+def _log_unconfigured_once(kind: str, message: str) -> None:
+    """The "no SMTP/IMAP settings" line is useful once per run, not once per poll (the email page
+    and background pollers call _get_email_config every few seconds)."""
+    if kind not in _not_configured_logged:
+        _not_configured_logged.add(kind)
+        logger.info(message)
+
+
 def _xoauth2_raw(user: str, access_token: str) -> str:
     """The SASL XOAUTH2 initial-response string (unencoded).
 
@@ -944,9 +972,9 @@ def _get_email_config(account_id: str | None = None, owner: str = "") -> dict:
                 }
                 is_oauth = bool(cfg.get("oauth_provider"))
                 if not is_oauth and not (cfg["smtp_host"] and cfg["smtp_user"] and cfg["smtp_password"]):
-                    logger.warning(f"SMTP not configured for account {row.name!r}")
+                    _log_unconfigured_once(f"smtp:{row.id}", f"SMTP not configured for account {row.name!r}")
                 if not is_oauth and not (cfg["imap_host"] and cfg["imap_user"] and cfg["imap_password"]):
-                    logger.warning(f"IMAP not configured for account {row.name!r}")
+                    _log_unconfigured_once(f"imap:{row.id}", f"IMAP not configured for account {row.name!r}")
                 return cfg
         finally:
             db.close()
@@ -974,9 +1002,9 @@ def _get_email_config(account_id: str | None = None, owner: str = "") -> dict:
         "from_address": settings.get("email_from", os.environ.get("EMAIL_FROM", "")),
     }
     if not (cfg["smtp_host"] and cfg["smtp_user"] and cfg["smtp_password"]):
-        logger.warning("SMTP not configured — add an Email Account in Settings or set env vars")
+        _log_unconfigured_once("smtp:legacy", "SMTP not configured — add an Email Account in Settings or set env vars")
     if not (cfg["imap_host"] and cfg["imap_user"] and cfg["imap_password"]):
-        logger.warning("IMAP not configured — add an Email Account in Settings or set env vars")
+        _log_unconfigured_once("imap:legacy", "IMAP not configured — add an Email Account in Settings or set env vars")
     return cfg
 
 

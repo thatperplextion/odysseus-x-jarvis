@@ -56,6 +56,13 @@ def require_admin(request: Request):
         raise HTTPException(403, "Admin only")
 
 
+# Odysseus app pages the OS desktop opens inside its windows (see static/os/apps/odysseus.js).
+# An exact allow-list: nothing else becomes frameable, even by the same origin.
+OS_EMBEDDABLE_PAGES = frozenset({
+    "/", "/notes", "/calendar", "/cookbook", "/email", "/memory", "/gallery", "/tasks", "/library",
+})
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add standard security headers to all responses."""
 
@@ -73,6 +80,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         is_document_pdf_preview = path.startswith("/api/document/") and path.endswith("/render-pdf")
         # Visual report pages are self-contained HTML — need inline scripts + external images
         is_report = path.startswith("/api/research/report/")
+        # Pages the OS desktop (/os) embeds as windows. Same-origin framing only
+        # (frame-ancestors 'self'), so other sites still cannot frame them.
+        is_os_embeddable = path in OS_EMBEDDABLE_PAGES
+        # Raw file bytes from the OS file API: never frameable, never allowed to run anything.
+        is_os_raw = path == "/api/os/fs/raw"
 
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -98,6 +110,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         elif is_tool_render:
             # Skip framing headers for tools.
             pass
+        elif is_os_raw:
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; "
+                "sandbox; "
+                "frame-ancestors 'none'"
+            )
         elif is_document_pdf_preview:
             response.headers["X-Frame-Options"] = "SAMEORIGIN"
             response.headers["Content-Security-Policy"] = (
@@ -105,7 +124,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "frame-ancestors 'self'"
             )
         else:
-            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-Frame-Options"] = "SAMEORIGIN" if is_os_embeddable else "DENY"
             # NOTE: `style-src 'unsafe-inline'` is intentionally retained.
             # `static/index.html` and `static/login.html` ship inline <style>
             # blocks, and several JS modules build runtime `style=""` attrs.
@@ -121,6 +140,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "media-src 'self' blob:; "
                 "connect-src 'self'; "
                 "frame-src 'self'; "
-                "frame-ancestors 'none'"
+                + ("frame-ancestors 'self'" if is_os_embeddable else "frame-ancestors 'none'")
             )
         return response

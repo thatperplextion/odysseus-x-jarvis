@@ -191,6 +191,12 @@ def setup_research_routes(research_handler, session_manager=None) -> APIRouter:
         except Exception:
             return False
 
+    def _has_research_record(session_id: str) -> bool:
+        """Is there any research task (running, or persisted) for this id, whoever owns it?"""
+        if research_handler._active_tasks.get(session_id) is not None:
+            return True
+        return (Path(DEEP_RESEARCH_DIR) / f"{session_id}.json").exists()
+
     @router.get("/api/research/active")
     async def research_active(request: Request):
         """List all currently active (running) research tasks."""
@@ -215,10 +221,16 @@ def setup_research_routes(research_handler, session_manager=None) -> APIRouter:
         user = _require_user(request)
         _validate_session_id(session_id)
         if not _owns_in_memory(session_id, user):
-            raise HTTPException(404, "No research found for this session")
+            if _has_research_record(session_id):
+                # Somebody else's research: indistinguishable from "does not exist".
+                raise HTTPException(404, "No research found for this session")
+            # No research for this chat at all - the normal case. The chat page asks every time a chat is
+            # opened; answer "nothing here" with a 200 instead of a 404 that shows up as a red network
+            # error in the browser console on every chat switch.
+            return {"status": "none"}
         status = research_handler.get_status(session_id)
         if status is None:
-            raise HTTPException(404, "No research found for this session")
+            return {"status": "none"}
         return status
 
     @router.post("/api/research/cancel/{session_id}")

@@ -547,9 +547,8 @@ class SelfImprovementSystem:
     async def health_check(self) -> bool:
         """Health check for self-improvement system"""
         try:
-            # Test basic functionality
-            self.record_metric("health_check_test", 1.0, "test")
-            
+            # Read-only: recording a "health_check_test" metric here polluted the real metrics.
+
             # Verify integrations
             integrations_ok = True
             if not self.memory:

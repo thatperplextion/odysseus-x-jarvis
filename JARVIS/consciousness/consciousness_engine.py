@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 import json
 import random
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +84,22 @@ class PersonalityProfile:
         return random.choice(self.closings)
 
 
+# An auto-executing rule that has just fired stays quiet for this long. Without it a condition
+# that stays true (RAM above 80% on a busy machine) re-fired on *every* event, and each action
+# emitted another event: a feedback storm that froze the server for ~21 s at a time.
+DEFAULT_AUTO_COOLDOWN_SECONDS = 120.0
+
+
 class DecisionEngine:
     """Makes autonomous decisions based on context and rules"""
-    
+
     def __init__(self, personality: PersonalityProfile):
         self.personality = personality
         self.decision_rules: List[Dict[str, Any]] = []
         self.decision_history: List[Dict[str, Any]] = []
         self.max_history = 100
-        
+        self._last_fired: Dict[str, float] = {}
+
         # Load default decision rules
         self._load_default_rules()
     
@@ -131,20 +139,27 @@ class DecisionEngine:
     async def evaluate_decision(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Evaluate context and return decision if rules match"""
         matching_decisions = []
-        
+        now = time.monotonic()
+
         for rule in self.decision_rules:
-            if self._evaluate_condition(rule['condition'], context):
-                matching_decisions.append(rule)
-        
+            if not self._evaluate_condition(rule['condition'], context):
+                continue
+            cooldown = rule.get('cooldown', DEFAULT_AUTO_COOLDOWN_SECONDS if rule.get('auto_execute') else 0.0)
+            last = self._last_fired.get(rule['id'])
+            if last is not None and now - last < cooldown:
+                continue  # fired recently; the condition still being true is not news
+            matching_decisions.append(rule)
+
         if not matching_decisions:
             return None
-        
+
         # Sort by priority
         matching_decisions.sort(key=lambda x: x['priority'], reverse=True)
-        
+
         # Return highest priority decision
         decision = matching_decisions[0]
-        
+        self._last_fired[decision['id']] = now
+
         # Log decision
         self._log_decision(decision, context)
         

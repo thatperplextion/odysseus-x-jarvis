@@ -28,6 +28,10 @@ cdb.Base.metadata.create_all(_ENGINE)
 _TS = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
 
 
+# setup_session_routes() registers onto one module-level router, so every call adds another copy of each route; the endpoint a test
+# wants is the one its own call just registered (the last), not the first copy a test that ran earlier in this process left behind.
+
+
 def _stub_multipart_if_missing(monkeypatch):
     try:
         import python_multipart  # noqa: F401
@@ -66,7 +70,7 @@ def test_list_sessions_excludes_other_users_sessions(monkeypatch):
     sm = MagicMock()
     sm.get_sessions_for_user.return_value = {alice_id: alice_session}
     router = sr.setup_session_routes(sm, {})
-    endpoint = next(r.endpoint for r in router.routes
+    endpoint = next(r.endpoint for r in reversed(router.routes)
                     if getattr(r, "path", "") == "/api/sessions"
                     and "GET" in getattr(r, "methods", set()))
 
@@ -119,7 +123,7 @@ def test_auto_sort_skip_llm_cleans_owner_stamped_sessions_when_auth_disabled(mon
     sm = MagicMock()
     sm.get_sessions_for_user.return_value = {sid: session}
     router = sr.setup_session_routes(sm, {})
-    endpoint = next(r.endpoint for r in router.routes
+    endpoint = next(r.endpoint for r in reversed(router.routes)
                     if getattr(r, "path", "") == "/api/sessions/auto-sort"
                     and "POST" in getattr(r, "methods", set()))
 
