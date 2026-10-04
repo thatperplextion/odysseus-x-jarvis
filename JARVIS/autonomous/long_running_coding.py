@@ -353,7 +353,8 @@ class LongRunningCodingSystem:
         elif step_type == "command" and self.os_operations:
             command = step.get("command")
             timeout = step.get("timeout", 30)
-            result = self.os_operations.execute_command(command, timeout)
+            # execute_command blocks on a subprocess; keep it off the event loop.
+            result = await asyncio.to_thread(self.os_operations.execute_command, command, timeout)
             return result.success
         
         elif step_type == "planning" and self.autonomous_planner:

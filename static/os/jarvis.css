@@ -1,0 +1,83 @@
+/* Jarvis: the daily-cycle cards (agenda, to-dos, automations), the approval steps and the result cards.
+   Uses the shell tokens from os.css; the base chat styles live in apps.css. */
+
+.jv-stack { display: grid; gap: 10px; width: min(480px, 100%); min-width: 0; }
+.jv-stack > .jv-text { max-width: 100%; }
+
+/* ------------------------------------------------------------------ cards */
+.jv-card { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 11px 14px 9px; min-width: 0; }
+.jv-card-head { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.jv-card-count { margin-left: auto; letter-spacing: .04em; text-transform: none; }
+.jv-card-empty { padding: 4px 0 8px; font-size: 12.5px; }
+.jv-card-foot { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px -6px -3px; padding-top: 6px; border-top: 1px solid var(--line); }
+.jv-card-foot .btn { color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ agenda */
+.jv-day + .jv-day { margin-top: 10px; }
+.jv-day-label { margin-bottom: 3px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.jv-item { display: grid; grid-template-columns: 92px minmax(0, 1fr); column-gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.4; }
+.jv-day-label + .jv-item { border-top: 0; }
+.jv-time { color: var(--ink-2); font-size: 11.5px; padding-top: 1px; white-space: nowrap; }
+.jv-it-title { font-weight: 500; overflow-wrap: anywhere; }
+.jv-it-loc { grid-column: 2; font-size: 12px; }
+.jv-tag { margin-left: 8px; padding: 1px 6px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: 10px; font-weight: 500; letter-spacing: .02em; vertical-align: 1px; }
+
+/* ------------------------------------------------------------------ to-dos */
+.jv-todos { display: grid; }
+.jv-todo { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
+.jv-todo:first-child { border-top: 0; }
+.jv-todo-text { padding-top: 1px; overflow-wrap: anywhere; transition: color .15s; }
+.jv-todo.done .jv-todo-text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-2); }
+.jv-check { flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; padding: 0; border: 1.5px solid var(--line-2); border-radius: 6px; background: var(--surface); color: transparent; transition: background .12s, border-color .12s, color .12s; }
+.jv-check:hover { border-color: var(--ink-2); }
+.jv-check.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+/* ------------------------------------------------------------- automations */
+.jv-auto { display: flex; align-items: center; gap: 10px; width: calc(100% + 12px); margin: 0 -6px; padding: 7px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; text-align: left; font-size: 13px; }
+.jv-card-head + .jv-auto { border-top: 0; }
+.jv-auto:hover { background: var(--surface-3); }
+.jv-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.jv-dot.st-paused { background: var(--line-2); }
+.jv-dot.st-completed, .jv-dot.st-error { background: var(--muted); }
+.jv-auto-main { flex: 1; min-width: 0; display: grid; }
+.jv-auto-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-auto-when { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-auto-side { flex: none; max-width: 42%; font-size: 11px; color: var(--muted); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ----------------------------------------------------- approval: the steps */
+.jv-steps { display: grid; gap: 10px; margin: 0 0 12px; }
+.jv-step { display: flex; gap: 11px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.jv-step.plain { display: block; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.jv-step-ico { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); }
+.jv-step-body { min-width: 0; flex: 1; }
+.jv-step-verb { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.jv-step-title { margin: 2px 0 6px; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.jv-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 12.5px; line-height: 1.45; }
+.jv-rows dt { color: var(--muted); font: 500 10.5px/1.9 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.jv-rows dd { margin: 0; overflow-wrap: anywhere; }
+.jv-rows dd.jv-prompt { white-space: pre-wrap; max-height: 7.8em; overflow: auto; padding: 5px 8px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; }
+.jv-warn { display: flex; align-items: flex-start; gap: 6px; margin-top: 7px; font-size: 12px; color: var(--warn); }
+.jv-warn svg { flex: none; margin-top: 2px; }
+.jv-note { margin-top: 7px; font-size: 11.5px; line-height: 1.45; }
+.is-approved .jv-step, .is-denied .jv-step, .is-expired .jv-step { background: transparent; }
+.is-approved .jv-step-ico, .is-denied .jv-step-ico, .is-expired .jv-step-ico { background: var(--surface-3); color: var(--muted); }
+
+/* ------------------------------------------------------------- results */
+.jv-result { padding: 10px 14px; }
+.jv-result-head { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.45; }
+.jv-result-ico { flex: none; display: grid; place-items: center; width: 20px; height: 20px; margin-top: -1px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }
+.jv-result.bad .jv-result-ico { background: var(--danger-soft); color: var(--danger); }
+.jv-result.bad .jv-result-msg { color: var(--danger); }
+.jv-result .jv-rows { margin: 8px 0 0 29px; }
+.jv-output { margin: 9px 0 0 29px; padding: 10px 12px; max-height: 240px; overflow: auto; border-radius: 9px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.jv-result .jv-card-foot { margin-left: 23px; border-top: 0; padding-top: 2px; }
+
+@media (max-width: 520px) {
+  .jv-item { grid-template-columns: 76px minmax(0, 1fr); }
+  .jv-auto-side { display: none; }
+}
+
+.jv-run-state { display: inline-flex; gap: 4px; margin-left: auto; align-self: center; }
+.jv-run-state i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
+.jv-run-state i:nth-child(2) { animation-delay: .15s; } .jv-run-state i:nth-child(3) { animation-delay: .3s; }
+@media (prefers-reduced-motion: reduce) { .jv-run-state i { animation: none; } }

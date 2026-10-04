@@ -776,7 +776,9 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     try {
-      if (doc.language && doc.language !== 'text' && window.hljs && !_librarySearch) {
+      // getLanguage() first: hljs.highlight() logs a console error for a grammar it was not built with
+      // (e.g. the "email" document type) before it throws, even though the throw is caught here.
+      if (doc.language && doc.language !== 'text' && window.hljs && window.hljs.getLanguage(doc.language) && !_librarySearch) {
         code.innerHTML = window.hljs.highlight(doc.preview || '', { language: doc.language }).value;
       } else if (_librarySearch) {
         // While searching, highlight matched terms in the preview (plain
@@ -955,7 +957,7 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
       // highlighting anyway, so skip it there.
       const HL_CAP = 20000;
       try {
-        if (lang && lang !== 'text' && lang !== 'markdown' && window.hljs && content.length <= HL_CAP) {
+        if (lang && lang !== 'text' && lang !== 'markdown' && window.hljs && window.hljs.getLanguage(lang) && content.length <= HL_CAP) {
           code.innerHTML = window.hljs.highlight(content, { language: lang }).value;
         } else {
           code.textContent = content;

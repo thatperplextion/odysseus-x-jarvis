@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -40,6 +41,10 @@ class JarvisCore:
         self.autonomous_agent = None
         self.ui = None
         self.odysseus_components: Dict[str, Any] = {}
+        self._last_health_check = 0.0
+        self.os_config = None   # SandboxConfig  (set by _initialize_os_sandbox)
+        self.os_sandbox = None  # Sandbox        (the one filesystem policy)
+        self.os_fs = None       # FileSystem     (sandboxed file operations + Trash)
 
         self.jarvis_dir = Path(__file__).parent
         self.jarvis_data_dir = Path(DATA_DIR) / "jarvis"
@@ -62,6 +67,7 @@ class JarvisCore:
 
         try:
             await self._load_configuration()
+            self._initialize_os_sandbox()
 
             # Phase 1: Core AI Engine components
             await self._initialize_planning()
@@ -308,18 +314,38 @@ class JarvisCore:
         self.subsystems['meta_reasoner'] = meta_reasoner
         logger.info("Phase 2 Advanced Reasoning System initialized")
 
+    def _initialize_os_sandbox(self):
+        """One filesystem policy for everything: the kernel, the system interface, the
+        autonomous agents, the legacy /api/jarvis/os routes and the desktop shell all
+        resolve paths through this sandbox (named mounts; Home by default)."""
+        from services.os_shell.sandbox import SandboxConfig
+        from services.os_shell.fs import FileSystem
+
+        self.os_config = SandboxConfig(self.jarvis_data_dir)
+        self.os_sandbox = self.os_config.load()
+        self.os_fs = FileSystem(self.os_sandbox, self.jarvis_data_dir / "trash")
+        logger.info(
+            "OS sandbox ready: %s",
+            ", ".join(f"/{m.name}{' (ro)' if m.readonly else ''}" for m in self.os_sandbox.mounts),
+        )
+
+    def audit(self, event_type: str, details: Dict[str, Any] = None, severity: str = "info",
+              source: str = "os"):
+        """Record a security-relevant action. Safe to call before the security subsystem exists."""
+        security = self.subsystems.get('security')
+        if not security:
+            return
+        from JARVIS.security.security_manager import ThreatLevel
+        level = {"info": ThreatLevel.INFO, "low": ThreatLevel.LOW, "medium": ThreatLevel.MEDIUM,
+                 "high": ThreatLevel.HIGH, "critical": ThreatLevel.CRITICAL}.get(severity, ThreatLevel.INFO)
+        security.log_security_event(event_type, level, source, details or {})
+
     async def _initialize_os_operations(self):
         """Initialize OS Operations Manager"""
         logger.info("Initializing OS Operations Manager...")
         from JARVIS.os_integration import OSOperations
-        os_ops = OSOperations()
-        
-        # Add default allowed paths (can be configured)
-        os_ops.add_allowed_path(str(self.jarvis_data_dir), read_only=False)
-        os_ops.add_allowed_path(str(Path.home()), read_only=False)
-        # Add project directory for full file access
-        os_ops.add_allowed_path(str(Path.cwd()), read_only=False)
-        
+        os_ops = OSOperations(fs=self.os_fs, audit=lambda event, details: self.audit(event, details, source="os_operations"))
+
         await os_ops.health_check()
         self.subsystems['os_operations'] = os_ops
         logger.info("OS Operations Manager initialized")
@@ -499,6 +525,7 @@ class JarvisCore:
         logger.info("Initializing system interface...")
         from JARVIS.interface.system_interface import SystemInterface
         interface = SystemInterface(self.config, self.jarvis_data_dir)
+        interface.fs_manager.attach_sandbox(self.os_sandbox, self.os_fs)
         await interface.initialize()
         self.subsystems['interface'] = interface
 
@@ -769,9 +796,6 @@ class JarvisCore:
             if memory:
                 pass  # Already integrated in initialization
 
-        # Add jarvis data dir to safe paths for file operations
-        if interface:
-            interface.fs_manager.safe_directories.append(self.jarvis_data_dir)
 
     async def _initialize_ui(self):
         logger.info("Initializing Jarvis UI...")
@@ -808,30 +832,47 @@ class JarvisCore:
                 await asyncio.sleep(1)
 
     async def _process_events(self):
-        events = []
-        for subsystem in self.subsystems.values():
+        # Tag each event with the subsystem that emitted it. A subsystem must never be fed its
+        # own events: the consciousness engine emits `action_executed` after acting, and
+        # re-processing that triggered another action, forever.
+        tagged = []
+        for name, subsystem in self.subsystems.items():
             if hasattr(subsystem, 'get_events'):
-                subsystem_events = await subsystem.get_events()
-                events.extend(subsystem_events)
+                for event in await subsystem.get_events():
+                    tagged.append((name, event))
 
-        if events and 'consciousness' in self.subsystems:
-            await self.subsystems['consciousness'].process_events(events)
+        if 'consciousness' in self.subsystems:
+            events = [e for source, e in tagged if source != 'consciousness']
+            if events:
+                await self.subsystems['consciousness'].process_events(events)
 
-        if events and 'automation' in self.subsystems:
-            for event in events:
+        if 'automation' in self.subsystems:
+            for source, event in tagged:
+                if source == 'automation':
+                    continue
                 await self.subsystems['automation'].emit_event(
                     event.get('type', 'unknown'),
                     event.get('data', {})
                 )
 
+    HEALTH_CHECK_INTERVAL_SECONDS = 300
+
+    @staticmethod
+    def _is_healthy(health) -> bool:
+        """Subsystems report health as True or as a string such as "healthy (3 items)"."""
+        return health is True or (isinstance(health, str) and (health == 'True' or health.startswith('healthy')))
+
     async def _periodic_maintenance(self):
-        for name, subsystem in self.subsystems.items():
-            if hasattr(subsystem, 'health_check'):
-                health = await subsystem.health_check()
-                # Handle both boolean and string health check returns
-                health_str = str(health) if isinstance(health, bool) else health
-                if health_str != 'healthy' and not health_str.startswith('healthy'):
-                    logger.warning(f"Subsystem {name} health: {health}")
+        # Health checks are not free (several exercise their subsystem), so they run every few
+        # minutes rather than on every 5 s tick, and only a real problem is logged.
+        now = time.monotonic()
+        if now - self._last_health_check >= self.HEALTH_CHECK_INTERVAL_SECONDS:
+            self._last_health_check = now
+            for name, subsystem in self.subsystems.items():
+                if hasattr(subsystem, 'health_check'):
+                    health = await subsystem.health_check()
+                    if not self._is_healthy(health):
+                        logger.warning(f"Subsystem {name} health: {health}")
 
         if 'kernel' in self.subsystems:
             await self.subsystems['kernel'].cleanup_resources()
@@ -948,6 +989,17 @@ async def main():
                 break
 
             result = await jarvis.process_command(user_input)
+            if result.get('requires_confirmation'):
+                action = result.get('action', {})
+                print(f"Jarvis: {result.get('response')}")
+                print(f"  {action.get('title', '')}\n  {action.get('detail', '')}")
+                answer = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: input("Approve? [y/N] ").strip().lower()
+                )
+                if answer not in ('y', 'yes'):
+                    print("Jarvis: Cancelled.\n")
+                    continue
+                result = await jarvis.process_command(user_input, {'confirm_token': result['confirm_token']})
             print(f"Jarvis: {result.get('response', 'Done.')}\n")
 
     except KeyboardInterrupt:

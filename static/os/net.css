@@ -1,0 +1,25 @@
+/* Connection banner (static/os/js/netui.js): one calm line under the menu bar while Odysseus cannot be reached.
+   Hairline, warm neutral, mono label; the one warm accent is only the small pulsing dot. No red alarm. */
+
+.net-banner {
+  position: fixed; left: 50%; top: calc(var(--bar-h) + 10px); transform: translateX(-50%); z-index: 9120;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  max-width: min(680px, calc(100vw - 24px)); padding: 6px 7px 6px 14px;
+  background: var(--glass); backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--line-2); border-radius: 999px; box-shadow: var(--shadow-pop);
+  color: var(--ink-2); font-size: 12.5px; pointer-events: auto; animation: net-in .2s ease-out;
+}
+.net-banner[hidden] { display: none; }
+.net-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); flex: none; animation: net-pulse 1.8s ease-in-out infinite; }
+.net-label { white-space: nowrap; }
+.net-eta { font-size: 10.5px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
+.net-retry { flex: none; }
+
+/* While offline the last data stays on screen, just a little quieter, and toasts make room for the banner. */
+:root[data-net="offline"] .tw-body, :root[data-net="offline"] .dash-summary { opacity: .62; transition: opacity .3s; }
+:root[data-net="offline"] .toasts { top: 96px; }
+
+@keyframes net-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes net-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .net-dot, .net-banner { animation: none; } }
+@media (max-width: 760px) { .net-label { white-space: normal; text-align: center; } }

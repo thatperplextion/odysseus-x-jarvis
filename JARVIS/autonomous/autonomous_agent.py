@@ -5,13 +5,43 @@ Coordinates all subsystems to execute commands, respond to events, and operate p
 
 import asyncio
 import logging
+import time
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from JARVIS.command_processor import CommandProcessor, IntentType
 from JARVIS.security.security_manager import Permission
+from services.os_shell.approvals import ApprovalStore
 
 logger = logging.getLogger(__name__)
+
+# Intents that change the machine. A mis-parsed sentence, a hallucinated command or
+# prompt-injected text must never act on its own, so these wait for a human to
+# approve the exact action (see AutonomousAgent._create_pending).
+APPROVAL_REQUIRED = {
+    IntentType.EXECUTE_COMMAND,
+    IntentType.WRITE_FILE,
+    IntentType.TRIGGER_WORKFLOW,
+    IntentType.SHUTDOWN,
+}
+PENDING_TTL_SECONDS = 300
+MAX_PENDING = 50
+COMMAND_WAIT_SECONDS = 30
+
+
+def describe_action(intent: IntentType, params: Dict[str, Any]) -> Dict[str, str]:
+    """What the approval card shows the human."""
+    if intent == IntentType.EXECUTE_COMMAND:
+        return {"kind": "run_command", "title": "Run a shell command", "detail": params.get("command", "")}
+    if intent == IntentType.WRITE_FILE:
+        content = params.get("content", "")
+        preview = content if len(content) <= 400 else content[:400] + f"... (+{len(content) - 400} chars)"
+        return {"kind": "write_file", "title": f"Write {params.get('path', '')}", "detail": preview}
+    if intent == IntentType.TRIGGER_WORKFLOW:
+        return {"kind": "trigger_workflow", "title": "Run an automation workflow", "detail": params.get("workflow_id", "")}
+    if intent == IntentType.SHUTDOWN:
+        return {"kind": "shutdown", "title": "Shut down Jarvis OS", "detail": "Stops the assistant and kernel until Odysseus restarts."}
+    return {"kind": intent.value, "title": intent.value, "detail": ""}
 
 
 class AutonomousAgent:
@@ -28,6 +58,7 @@ class AutonomousAgent:
         self._autonomous_task: Optional[asyncio.Task] = None
         self.command_history: List[Dict[str, Any]] = []
         self.max_history = 500
+        self.approvals = ApprovalStore(ttl_seconds=PENDING_TTL_SECONDS, max_pending=MAX_PENDING)
 
     async def initialize(self):
         """Start autonomous operation loop if enabled"""
@@ -40,8 +71,33 @@ class AutonomousAgent:
 
     async def process_command(self, text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Process a user command and return structured result"""
-        context = context or {}
-        intent, params = self.command_processor.parse(text)
+        context = dict(context or {})
+        confirm_token = context.pop('confirm_token', None)
+        owner = context.get('user')  # approvals are bound to the user who was asked
+
+        if confirm_token:
+            pending = self.approvals.take(confirm_token, owner)
+            if pending is None:
+                return {
+                    'intent': 'approval', 'params': {}, 'success': False, 'data': None,
+                    'response': "That approval expired or was already used. Ask again and approve the new request.",
+                    'timestamp': datetime.now().isoformat(),
+                }
+            intent, params, text = IntentType(pending['intent']), pending['params'], pending['text']
+        else:
+            intent, params = self.command_processor.parse(text)
+            if intent in APPROVAL_REQUIRED:
+                action = describe_action(intent, params)
+                return {
+                    'intent': intent.value, 'params': params, 'success': False, 'data': None,
+                    'requires_confirmation': True,
+                    'confirm_token': self.approvals.create(
+                        {'intent': intent.value, 'params': params, 'text': text}, owner),
+                    'action': action,
+                    'expires_in': PENDING_TTL_SECONDS,
+                    'response': f"I need your approval before I do this: {action['title']}.",
+                    'timestamp': datetime.now().isoformat(),
+                }
 
         result = {
             'intent': intent.value,
@@ -53,7 +109,11 @@ class AutonomousAgent:
         }
 
         try:
-            handler = getattr(self, f'_handle_{intent.value}', None)
+            # _handle_chat returns a bare string (not the (response, data, success)
+            # tuple the other handlers return), so chat/unknown take the else branch.
+            # Looking it up generically made every free-form message fail to unpack.
+            is_chat = intent in (IntentType.CHAT, IntentType.UNKNOWN)
+            handler = None if is_chat else getattr(self, f'_handle_{intent.value}', None)
             if handler:
                 response, data, success = await handler(params, context)
                 result['response'] = response
@@ -128,6 +188,12 @@ class AutonomousAgent:
         if not command:
             return "No command specified.", None, False
 
+        from services.os_shell.command_guard import check_command
+        blocked = check_command(command)
+        if blocked:
+            self.jarvis.audit('assistant_command_blocked', {'command': command[:300], 'reason': blocked}, 'medium', 'assistant')
+            return blocked, None, False
+
         security = self.jarvis.subsystems.get('security')
         if security and not security.check_permission('system', Permission.PROCESS_CONTROL):
             return "Permission denied for command execution.", None, False
@@ -136,17 +202,41 @@ class AutonomousAgent:
         if not kernel:
             return "Kernel unavailable.", None, False
 
-        process_id = await kernel.execute_command(command, priority=7)
-        await asyncio.sleep(1.5)
-        status = kernel.process_manager.get_process_status(process_id)
+        metadata = {}
+        sandbox = getattr(self.jarvis, 'os_sandbox', None)
+        if sandbox is not None:
+            home = sandbox.get_mount('Home')
+            if home is not None:
+                metadata['cwd'] = str(home.root)  # approved commands start in the sandbox's Home
+            requested = params.get('cwd')
+            if requested:
+                # an explicit working directory (from a planned step) must still be inside a mount
+                from services.os_shell.sandbox import SandboxError
+                try:
+                    metadata['cwd'] = str(sandbox.resolve(requested).path)
+                except SandboxError as e:
+                    return f"Cannot run there: {e}", None, False
+
+        self.jarvis.audit('assistant_command', {'command': command[:300]}, 'info', 'assistant')
+        process_id = await kernel.execute_command(command, priority=7, metadata=metadata)
+
+        # Wait for the real result (the kernel runs it asynchronously) instead of guessing with a sleep.
+        deadline = time.monotonic() + COMMAND_WAIT_SECONDS
+        status = None
+        while time.monotonic() < deadline:
+            status = kernel.process_manager.get_process_status(process_id)
+            if status and status.get('state') in ('completed', 'failed', 'cancelled'):
+                break
+            await asyncio.sleep(0.1)
 
         if status and status.get('state') == 'completed':
-            output = status.get('result', {}).get('output', 'Done.')
+            output = (status.get('result') or {}).get('output', '') or 'Done.'
             return f"Command executed.\n{output}", status, True
-        elif status and status.get('state') == 'failed':
-            return f"Command failed: {status.get('error', 'unknown error')}", status, False
-        else:
-            return f"Command queued (process {process_id}).", {'process_id': process_id}, True
+        if status and status.get('state') == 'failed':
+            output = ((status.get('result') or {}).get('output') or '').strip()
+            detail = f"\n{output}" if output else ''
+            return f"Command failed: {status.get('error', 'unknown error')}{detail}", status, False
+        return f"Command still running (process {process_id}); check the Task Manager.", {'process_id': process_id}, True
 
     async def _handle_read_file(self, params: Dict, context: Dict) -> tuple:
         path = params.get('path', '')

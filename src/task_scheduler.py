@@ -2111,6 +2111,16 @@ class TaskScheduler:
                 return recent.endpoint_url, recent.model
         except Exception:
             pass
+        # No chat session to borrow a model from (a fresh install, or someone who only uses Automations / the OS
+        # assistant): use the model configured in Settings > AI models (task -> utility -> default chat model),
+        # otherwise an AI-prompt automation fails with "No model/endpoint configured" although a model is set up.
+        try:
+            from src.endpoint_resolver import resolve_endpoint
+            url, model, _headers = resolve_endpoint("task", owner=owner or None)
+            if url and model:
+                return url, model
+        except Exception:
+            pass
         return None, None
 
     async def _deliver_via_mcp(self, tool_name: str, task, result: str):

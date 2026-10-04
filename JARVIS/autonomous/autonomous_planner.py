@@ -530,10 +530,9 @@ class AutonomousPlanner(EnhancedPlanner):
     async def health_check(self) -> bool:
         """Health check for autonomous planner"""
         try:
-            # Test basic functionality
-            test_plan = self.create_plan("health_check")
-            test_task = self.add_task_to_plan("Test task", TaskPriority.LOW)
-            
+            # Read-only: this used to create a "health_check" plan and a "Test task" on every call,
+            # which leaked plans and showed up in the real planner data.
+
             # Verify integrations
             integrations_ok = True
             if not self.os_operations:

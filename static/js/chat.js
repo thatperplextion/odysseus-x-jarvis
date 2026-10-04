@@ -4445,9 +4445,13 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       const res = await fetch(`${API_BASE}/api/research/status/${sessionId}`);
       if (!res.ok) {
         if (sessionModule && sessionModule.clearResearching) sessionModule.clearResearching(sessionId);
-        return; // 404 = no research for this session
+        return; // 404 = not this user's research
       }
       const data = await res.json();
+      if (data.status === 'none') {          // 200 {status:'none'} = no research for this chat (the usual case)
+        if (sessionModule && sessionModule.clearResearching) sessionModule.clearResearching(sessionId);
+        return;
+      }
 
       if (data.status === 'done') {
         // Fetch and render the completed result

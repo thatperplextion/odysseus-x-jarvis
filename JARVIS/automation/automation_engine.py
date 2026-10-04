@@ -165,22 +165,35 @@ class ActionLibrary:
 
         logger.info(f"Executing command: {command}")
 
-        if self.system_interface:
-            import subprocess
-            try:
-                result = subprocess.run(
-                    command, shell=True, capture_output=True, text=True, timeout=60
-                )
-                return {
-                    'status': 'success' if result.returncode == 0 else 'failed',
-                    'output': (result.stdout or '') + (result.stderr or ''),
-                    'exit_code': result.returncode
-                }
-            except subprocess.TimeoutExpired:
-                return {'status': 'timeout', 'output': 'Command timed out', 'exit_code': -1}
+        if not self.system_interface:
+            # Never report success for something that did not run.
+            return {'status': 'failed', 'output': 'System interface not attached', 'exit_code': -1}
 
-        return {'status': 'success', 'output': f'Executed: {command}', 'exit_code': 0}
-    
+        from services.os_shell.command_guard import check_command
+        from services.os_shell.procs import run_capped
+
+        reason = check_command(command)
+        if reason:
+            return {'status': 'blocked', 'output': reason, 'exit_code': -1}
+
+        # Workflows are not typed at a keyboard, so they run in the sandbox's Home folder.
+        cwd = None
+        sandbox = getattr(self.system_interface.fs_manager, 'sandbox', None)
+        if sandbox is not None:
+            home = sandbox.get_mount('Home')
+            cwd = str(home.root) if home else None
+
+        # run_capped blocks, so it runs on a worker thread: the old inline
+        # subprocess.run froze the whole server for up to 60 s per command.
+        result = await asyncio.to_thread(run_capped, command, cwd, 60)
+        if result.timed_out:
+            return {'status': 'timeout', 'output': 'Command timed out', 'exit_code': -1}
+        return {
+            'status': 'success' if result.returncode == 0 else 'failed',
+            'output': (result.stdout or '') + (result.stderr or ''),
+            'exit_code': result.returncode,
+        }
+
     async def _send_notification(self, parameters: Dict[str, Any],
                                  context: Dict[str, Any]) -> Dict[str, Any]:
         """Send a notification"""

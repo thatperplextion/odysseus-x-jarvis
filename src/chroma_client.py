@@ -7,6 +7,7 @@ Connects to a ChromaDB instance running as a standalone service.
 
 import os
 import socket
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,12 +20,32 @@ _client = None
 _CONNECT_TIMEOUT = float(os.getenv("CHROMADB_CONNECT_TIMEOUT", "2.0"))
 
 
+# On Windows a connection to a port nothing listens on is refused only after ~2 s, and startup probes
+# ChromaDB from several places (document RAG, memory vectors, tool index) one after the other - without
+# memory of the last failure that is 6-8 s of dead time at every boot when ChromaDB simply is not running.
+# So a failed probe is remembered briefly, and a loopback target (which answers at once when it is up)
+# gets a short timeout. Only the implicit (production) call uses this; an explicit timeout always probes.
+_NEGATIVE_TTL = float(os.getenv("CHROMADB_PROBE_CACHE_SECONDS", "30"))
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+_last_failure: dict = {}
+
+
 def _port_open(host: str, port: int, timeout: float = None) -> bool:
     """Return True if a TCP connection to host:port succeeds within timeout."""
+    implicit = timeout is None
+    key = (host, port)
+    if implicit:
+        failed_at = _last_failure.get(key)
+        if failed_at is not None and time.monotonic() - failed_at < _NEGATIVE_TTL:
+            return False
+        timeout = min(_CONNECT_TIMEOUT, 0.5) if host.lower() in _LOOPBACK_HOSTS else _CONNECT_TIMEOUT
     try:
-        with socket.create_connection((host, port), timeout=timeout or _CONNECT_TIMEOUT):
+        with socket.create_connection((host, port), timeout=timeout):
+            _last_failure.pop(key, None)
             return True
     except OSError:
+        if implicit:
+            _last_failure[key] = time.monotonic()
         return False
 
 
@@ -38,6 +59,19 @@ def get_chroma_client():
     if _client is not None:
         return _client
 
+    host = os.getenv("CHROMADB_HOST", "localhost")
+    port = int(os.getenv("CHROMADB_PORT", "8100"))
+
+    # Probe the port BEFORE importing chromadb: the import alone costs several
+    # seconds and tens of MB, and there is no point paying that when the service
+    # is not running (the usual state on a machine without Docker).
+    if not _port_open(host, port):
+        raise RuntimeError(
+            f"ChromaDB is not reachable at {host}:{port}. Start the ChromaDB "
+            f"service (e.g. `docker compose up chromadb`) or set CHROMADB_HOST / "
+            f"CHROMADB_PORT to point at a running instance."
+        )
+
     try:
         import chromadb
     except ImportError as e:
@@ -45,16 +79,6 @@ def get_chroma_client():
             "ChromaDB integration is not installed. Install the optional "
             "dependency with: pip install chromadb-client"
         ) from e
-
-    host = os.getenv("CHROMADB_HOST", "localhost")
-    port = int(os.getenv("CHROMADB_PORT", "8100"))
-
-    if not _port_open(host, port):
-        raise RuntimeError(
-            f"ChromaDB is not reachable at {host}:{port}. Start the ChromaDB "
-            f"service (e.g. `docker compose up chromadb`) or set CHROMADB_HOST / "
-            f"CHROMADB_PORT to point at a running instance."
-        )
 
     client = chromadb.HttpClient(host=host, port=port)
 
@@ -71,3 +95,4 @@ def reset_client():
     """Reset the singleton (e.g. after config change)."""
     global _client
     _client = None
+    _last_failure.clear()

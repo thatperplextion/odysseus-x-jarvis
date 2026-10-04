@@ -47,6 +47,7 @@ Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
 - **Email** — IMAP/SMTP inbox with triage, tags, summaries, reminders, and reply drafts.
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
+- **Odysseus OS** — a desktop shell at `/os` powered by the Jarvis kernel: windows, a dock, file manager with Trash, terminal, task manager, editor, and an assistant that asks before it acts. Your Odysseus apps open as windows too. See [docs/ODYSSEUS_OS.md](docs/ODYSSEUS_OS.md).
 - **Extras** — gallery/image editor, themes, uploads, web search, presets, sessions, and 2FA.
 
 ## Demo

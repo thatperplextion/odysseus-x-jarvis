@@ -143,6 +143,7 @@ async def dispatch_reminder(
     owner: str = "",
     queue_browser: bool = True,
     settings_override: dict | None = None,
+    due: str | None = None,
 ) -> dict:
     """Fire a reminder via the configured channel (browser/email/ntfy/webhook).
 
@@ -514,12 +515,29 @@ async def dispatch_reminder(
         except Exception as _e:
             logger.debug(f"dispatch_reminder: in-app notif push failed: {_e}")
 
+    # Server-initiated fire (the background scanner, not the Notes page): make it visible even when no browser
+    # tab is open - OS notification centre + a native desktop toast on a single-user Windows machine - and
+    # leave it to an open Odysseus OS tab when one is there to show it. `due` lets this share the OS page's
+    # de-duplication key. See services/os_shell/reminders.py.
+    os_announce: dict = {}
+    if queue_browser:
+        try:
+            from services.os_shell.reminders import announce as _os_announce
+            os_announce = await _os_announce(
+                note_id=str(note_id or ""), title=title,
+                body=(synthesis or note_body or title or ""), due=due, owner=owner or "",
+            )
+        except Exception as _e:
+            logger.debug(f"dispatch_reminder: OS announce skipped: {_e}")
+    _os_deferred = bool(os_announce.get("deferred")) and not (email_sent or ntfy_sent or webhook_sent)
+
     # Dedupe across paths: write to the same cache file `action_ping_notes`
     # reads, so the background scanner's REPING_MIN window suppresses a
     # second send for the same note within 25 min. Without this, a note
     # whose due_date fires while the user has the app open got TWO emails
     # (frontend-fired here + background-fired by ping_notes 0–5 min later).
-    if (email_sent or ntfy_sent or webhook_sent or browser_sent or local_browser_sent) and note_id:
+    _os_delivered = bool(os_announce.get("desktop") or os_announce.get("center"))
+    if (email_sent or ntfy_sent or webhook_sent or browser_sent or local_browser_sent or _os_delivered) and note_id and not _os_deferred:
         try:
             import json as _json
             from datetime import datetime as _dt, timezone as _tz
@@ -554,6 +572,9 @@ async def dispatch_reminder(
         "webhook_sent": webhook_sent,
         "webhook_error": webhook_error,
         "browser_sent": browser_sent or local_browser_sent,
+        "desktop_sent": bool(os_announce.get("desktop")),
+        "os_center_sent": bool(os_announce.get("center")),
+        "os_deferred": _os_deferred,
     }
 
 

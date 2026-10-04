@@ -41,6 +41,8 @@ mcp
 pyotp
 qrcode[pil]
 croniter
+# Jarvis OS layer (JARVIS/kernel, JARVIS/interface) imports this at startup
+psutil
 pytest
 pytest-asyncio
 # starlette.testclient prefers httpx2 since Starlette 1.2.0 and warns on every

@@ -29,8 +29,10 @@ cdb.Base.metadata.create_all(_ENGINE)
 _TS = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
 
 
+# setup_session_routes() registers onto one module-level router, so every call adds another copy of each route; the endpoint a test
+# wants is the one its own call just registered (the last), not the first copy a test that ran earlier in this process left behind.
 def _route(router, path, method="GET"):
-    for r in router.routes:
+    for r in reversed(router.routes):
         if r.path == path and method in getattr(r, "methods", set()):
             return r.endpoint
     raise AssertionError(f"route not found: {path}")

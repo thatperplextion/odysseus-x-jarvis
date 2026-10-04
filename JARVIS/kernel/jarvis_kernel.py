@@ -14,6 +14,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 
+from services.os_shell.procgroup import ProcessGroup
+from services.os_shell.procs import kill_process_tree  # noqa: F401  (re-exported for callers)
+from services.os_shell.textcodec import decode_console_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +47,57 @@ class Process:
     resource_usage: Dict[str, float] = field(default_factory=dict)
     dependencies: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+MAX_CAPTURED_OUTPUT = 1024 * 1024  # bytes kept per process; the rest is drained and dropped
+
+
+async def _drain(stream: asyncio.StreamReader, limit: int) -> bytes:
+    """Read a stream to EOF, keeping at most ``limit`` bytes (so `yes` can't eat RAM)."""
+    kept = bytearray()
+    while True:
+        chunk = await stream.read(65536)
+        if not chunk:
+            break
+        room = limit - len(kept)
+        if room > 0:
+            kept += chunk[:room]
+    return bytes(kept)
+
+
+async def _run_shell(command: str, cwd: str, timeout: float, on_start=None):
+    """Run ``command`` through the platform shell without blocking the event loop.
+
+    Returns ``(combined_stdout_stderr, exit_code)``. Raises ``TimeoutError`` on
+    timeout. Cancelling the awaiting task kills the whole process tree.
+    """
+    proc = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        stdin=asyncio.subprocess.DEVNULL,
+        cwd=cwd,
+        **({} if os.name == "nt" else {"start_new_session": True}),
+    )
+    group = ProcessGroup.attach(proc.pid)
+    if on_start:
+        on_start(proc.pid)
+
+    async def _collect():
+        out = await _drain(proc.stdout, MAX_CAPTURED_OUTPUT)
+        return out, await proc.wait()
+
+    try:
+        output, exit_code = await asyncio.wait_for(_collect(), timeout)
+    except asyncio.TimeoutError:
+        group.kill()
+        raise TimeoutError(f"Command timed out after {timeout}s: {command}")
+    except BaseException:  # includes CancelledError
+        group.kill()
+        raise
+    finally:
+        group.close()
+    return decode_console_output(output), exit_code
 
 
 class ResourceAllocator:
@@ -81,7 +136,7 @@ class ResourceAllocator:
         usage = {}
         
         # CPU usage
-        usage['cpu_percent'] = psutil.cpu_percent(interval=0.1)
+        usage['cpu_percent'] = psutil.cpu_percent(interval=None)  # never sleep the event loop to sample
         
         # Memory usage
         mem = psutil.virtual_memory()
@@ -148,6 +203,9 @@ class ProcessManager:
         
         process = self.processes[process_id]
         
+        if process.state == ProcessState.CANCELLED:
+            return True  # cancelled while queued: consume it so the queue worker drops it
+
         # Check dependencies
         for dep_id in process.dependencies:
             if dep_id not in self.processes:
@@ -185,29 +243,18 @@ class ProcessManager:
         try:
             logger.info(f"Executing process {process.id}: {process.command}")
 
-            output = ""
-            exit_code = 0
-
             kernel = getattr(self, '_kernel', None)
-            if kernel and kernel.system_interface:
-                import subprocess
-                import sys
-                try:
-                    result = subprocess.run(
-                        process.command,
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        timeout=process.metadata.get('timeout', 60),
-                        cwd=str(process.metadata.get('cwd', Path.home()))
-                    )
-                    output = (result.stdout or '') + (result.stderr or '')
-                    exit_code = result.returncode
-                except subprocess.TimeoutExpired:
-                    raise TimeoutError(f"Command timed out: {process.command}")
-            else:
-                await asyncio.sleep(0.5)
-                output = f"Simulated: {process.command}"
+            if not (kernel and kernel.system_interface):
+                # Never pretend a command ran: a fake "success" is worse than a
+                # visible failure for something that claims to be an OS kernel.
+                raise RuntimeError("System interface not attached to kernel; cannot execute commands")
+
+            output, exit_code = await _run_shell(
+                process.command,
+                cwd=str(process.metadata.get('cwd', Path.home())),
+                timeout=process.metadata.get('timeout', 60),
+                on_start=lambda pid: process.metadata.__setitem__('pid', pid),
+            )
 
             process.state = ProcessState.COMPLETED
             process.completed_at = datetime.now()
@@ -240,6 +287,12 @@ class ProcessManager:
     
     async def cancel_process(self, process_id: str) -> bool:
         """Cancel a running process"""
+        queued = self.processes.get(process_id)
+        if queued is not None and queued.state == ProcessState.CREATED:
+            queued.state = ProcessState.CANCELLED  # still queued: it will never start
+            queued.completed_at = datetime.now()
+            return True
+
         if process_id not in self.running_processes:
             logger.warning(f"Process {process_id} not running")
             return False
@@ -263,6 +316,9 @@ class ProcessManager:
         return {
             'id': process.id,
             'name': process.name,
+            'command': process.command,
+            'pid': process.metadata.get('pid'),
+            'source': process.metadata.get('source'),
             'state': process.state.value,
             'priority': process.priority,
             'created_at': process.created_at.isoformat(),

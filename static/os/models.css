@@ -1,0 +1,100 @@
+/* Settings > AI models. Uses the tokens from os.css; no new colours. */
+
+.mdl { container-type: inline-size; }
+.mdl .set-hint { max-width: 64ch; }
+.mdl > p.set-hint { margin-bottom: 26px; }
+
+/* ---------------------------------------------------------------- in use */
+.mdl-slot { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 6px 18px; align-items: start; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.mdl-slot:last-child { border-bottom: 0; }
+.mdl-slot-label .set-hint { margin-top: 3px; }
+.mdl-ref { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.mdl-ref-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px; min-width: 0; }
+.mdl-model { font-size: 12.5px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.mdl-sub { font-size: 12px; color: var(--muted); }
+.mdl-sub-chain { grid-column: 2; font-size: 12px; }
+.mdl-chain { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: fb; }
+.mdl-chain li { counter-increment: fb; display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; }
+.mdl-chain li::before { content: counter(fb); font: 500 10.5px var(--mono); color: var(--muted); }
+
+.mdl-tier { display: inline-block; padding: 1px 8px; border-radius: 999px; font: 500 10.5px/1.6 var(--mono); letter-spacing: .02em; white-space: nowrap; background: var(--surface-3); color: var(--ink-2); }
+.mdl-tier-free { background: var(--ok-soft); color: var(--ok); }
+.mdl-tier-paid { background: var(--warn-soft); color: var(--warn); }
+.mdl-tier-unknown { background: var(--surface-3); color: var(--muted); }
+
+/* ------------------------------------------------------------- benchmark */
+.mdl-run { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.mdl-run-status { font-size: 12.5px; }
+.mdl-err { padding: 0; margin: 0 0 12px; }
+.mdl-empty { margin: 4px 0 0; padding: 22px 0 6px; font-size: 13px; }
+.mdl-paid { margin-top: 18px; }
+
+.mdl-rec { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin: 18px 0 22px; padding: 16px 18px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface-2); }
+.mdl-rec-body { display: grid; gap: 11px; min-width: 0; flex: 1; }
+.mdl-rec-line { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.mdl-rec-label { font: 500 10.5px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mdl-rec-act { flex: none; }
+.mdl-why { font-size: 12px; line-height: 1.45; margin-top: 2px; }
+
+/* ----------------------------------------------------------------- table */
+.mdl-table { margin-top: 6px; border-top: 1px solid var(--line); }
+.mdl-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name tier" "meta act"; gap: 9px 14px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.mdl-cell-name { grid-area: name; min-width: 0; }
+.mdl-cell-tier { grid-area: tier; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.mdl-cell-meta { grid-area: meta; display: flex; align-items: center; gap: 16px; min-width: 0; }
+.mdl-cell-act { grid-area: act; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+.mdl-cell-act:empty { display: none; }
+.mdl-model-line { display: flex; align-items: center; gap: 8px; }
+.mdl-cell-score { display: flex; align-items: center; gap: 8px; }
+.mdl-cell-lat { font-size: 11.5px; white-space: nowrap; }
+.mdl-row-off { grid-template-areas: "name tier" "why why"; gap: 3px 14px; padding: 9px 0; opacity: .82; }
+.mdl-row-off .mdl-why { grid-area: why; margin: 0; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdl-row-off .mdl-model { font-weight: 450; color: var(--ink-2); }
+.mdl-bar { display: inline-block; width: 52px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; flex: none; }
+.mdl-bar-fill { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
+.mdl-score { font-size: 12px; min-width: 22px; }
+.mdl-flag { display: inline-block; padding: 3px 10px; border-radius: 999px; font: 500 11px/1.4 var(--mono); background: var(--surface-3); color: var(--ink-2); }
+
+.mdl-dots { display: inline-flex; gap: 5px; align-items: center; }
+.mdl-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid transparent; flex: none; cursor: help; }
+.mdl-dot-pass { background: var(--ok); }
+.mdl-dot-partial { background: var(--warn); }
+.mdl-dot-fail { background: var(--danger); }
+.mdl-dot-error { border-color: var(--danger); }
+.mdl-dot-pending { border-color: var(--line-2); }
+.mdl-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; margin-top: 12px; font-size: 11.5px; }
+.mdl-legend-keys { display: inline-flex; gap: 14px; flex-wrap: wrap; }
+.mdl-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.mdl-legend .mdl-dot { cursor: default; }
+
+.mdl-spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--line-2); border-top-color: var(--brand); animation: mdl-spin .8s linear infinite; flex: none; }
+@keyframes mdl-spin { to { transform: rotate(360deg); } }
+
+.mdl-off { margin-top: 4px; }
+.mdl-off summary { display: flex; align-items: center; gap: 6px; padding: 12px 0 8px; cursor: pointer; list-style: none; font: 500 11.5px var(--mono); color: var(--muted); }
+.mdl-off summary::-webkit-details-marker { display: none; }
+.mdl-off summary:hover { color: var(--ink); }
+.mdl-off summary svg { transition: transform .15s; }
+.mdl-off[open] summary svg { transform: rotate(90deg); }
+
+.mdl-skel { display: grid; gap: 12px; padding-top: 6px; }
+.mdl-skel span { display: block; height: 16px; border-radius: 6px; background: var(--surface-3); animation: mdl-pulse 1.3s ease-in-out infinite; }
+.mdl-skel span:nth-child(1) { width: 62%; }
+.mdl-skel span:nth-child(2) { width: 84%; }
+.mdl-skel span:nth-child(3) { width: 48%; }
+@keyframes mdl-pulse { 50% { opacity: .45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mdl-spin, .mdl-skel span { animation: none; }
+  .mdl-off summary svg { transition: none; }
+}
+
+/* ------------------------------------------------------------ narrow panes */
+@container (max-width: 520px) {
+  .mdl-slot { grid-template-columns: minmax(0, 1fr); }
+  .mdl-sub-chain { grid-column: 1; }
+  .mdl-rec { flex-direction: column; align-items: stretch; }
+  .mdl-rec-act { align-self: flex-start; }
+  .mdl-row { grid-template-areas: "name tier" "meta meta" "act act"; }
+  .mdl-cell-act { justify-content: flex-start; }
+}
